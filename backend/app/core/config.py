@@ -13,12 +13,18 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     
     # Base de données
-    DATABASE_URL: str = "postgresql://user:password@localhost/proctoflex_db"
+    DATABASE_URL: str = "postgresql://user:password@localhost:5432/proctoflex"
+    DATABASE_TEST_URL: str = "postgresql://user:password@localhost:5432/proctoflex_test"
     
     # Sécurité
     SECRET_KEY: str = "your-secret-key-change-in-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    
+    # Serveur
+    HOST: str = "0.0.0.0"
+    PORT: int = 8000
+    DEBUG: bool = True
     
     # CORS
     ALLOWED_ORIGINS: List[str] = [
@@ -29,6 +35,8 @@ class Settings(BaseSettings):
     
     # IA et Surveillance
     FACE_RECOGNITION_CONFIDENCE: float = 0.8
+    FACE_RECOGNITION_TOLERANCE: float = 0.6
+    MIN_FACE_CONFIDENCE: float = 0.8
     GAZE_DETECTION_ENABLED: bool = True
     AUDIO_ANALYSIS_ENABLED: bool = True
     SCREEN_ANALYSIS_ENABLED: bool = True
@@ -43,6 +51,13 @@ class Settings(BaseSettings):
     
     # Logging
     LOG_LEVEL: str = "INFO"
+    LOG_FILE: str = "./logs/app.log"
+    
+    # Redis (optionnel)
+    REDIS_URL: str = "redis://localhost:6379"
+    
+    # Monitoring
+    ENABLE_METRICS: bool = True
     
     class Config:
         env_file = ".env"

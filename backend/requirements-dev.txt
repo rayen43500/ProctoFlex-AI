@@ -1,0 +1,18 @@
+# Dépendances de développement avec versions flexibles
+-r requirements.txt
+
+# Outils de développement
+black>=23.0.0
+flake8>=6.0.0
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.0.0
+
+# Dépendances optionnelles pour le développement
+ipython>=8.0.0
+jupyter>=1.0.0
+pre-commit>=3.0.0
+
+# Monitoring et debugging
+memory-profiler>=0.60.0
+psutil>=5.9.0

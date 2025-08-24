@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ProctoFlex AI - Surveillance d'Examen</title>
+  <meta name="description" content="Application de surveillance intelligente pour examens en ligne" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:;" />
+  
+  <!-- Icônes -->
+  <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+  
+  <!-- Préchargement des polices -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  
+  <!-- Styles globaux -->
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+        sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      background-color: #111827;
+      color: #ffffff;
+      overflow: hidden;
+    }
+    
+    #root {
+      height: 100vh;
+      width: 100vw;
+    }
+    
+    /* Scrollbar personnalisée */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: #374151;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: #6b7280;
+      border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+      background: #9ca3af;
+    }
+    
+    /* Animations de chargement */
+    .loading-spinner {
+      border: 3px solid #374151;
+      border-top: 3px solid #3b82f6;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    /* Transitions globales */
+    * {
+      transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    }
+    
+    /* Focus visible pour l'accessibilité */
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible {
+      outline: 2px solid #3b82f6;
+      outline-offset: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div id="root">
+    <!-- Écran de chargement initial -->
+    <div style="
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background: linear-gradient(135deg, #111827 0%, #1f2937 100%);
+    ">
+      <div class="loading-spinner"></div>
+      <h1 style="
+        margin-top: 24px;
+        font-size: 24px;
+        font-weight: 600;
+        color: #ffffff;
+        text-align: center;
+      ">
+        ProctoFlex AI
+      </h1>
+      <p style="
+        margin-top: 8px;
+        color: #9ca3af;
+        text-align: center;
+        max-width: 300px;
+      ">
+        Chargement de l'application de surveillance...
+      </p>
+    </div>
+  </div>
+  
+  <script type="module" src="/src/renderer/main.tsx"></script>
+</body>
+</html>
