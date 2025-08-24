@@ -1,0 +1,120 @@
+version: '3.8'
+
+services:
+  # Base de données PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: proctoflex_postgres
+    environment:
+      POSTGRES_DB: proctoflex_db
+      POSTGRES_USER: proctoflex_user
+      POSTGRES_PASSWORD: proctoflex_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - proctoflex_network
+    restart: unless-stopped
+
+  # Backend FastAPI
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: proctoflex_backend
+    environment:
+      - DATABASE_URL=postgresql://proctoflex_user:proctoflex_password@postgres:5432/proctoflex_db
+      - SECRET_KEY=your-secret-key-change-in-production
+      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:8080
+    volumes:
+      - ./backend:/app
+      - ./uploads:/app/uploads
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+    networks:
+      - proctoflex_network
+    restart: unless-stopped
+
+  # Frontend React (développement)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: proctoflex_frontend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    networks:
+      - proctoflex_network
+    restart: unless-stopped
+
+  # Redis pour le cache et les sessions
+  redis:
+    image: redis:7-alpine
+    container_name: proctoflex_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - proctoflex_network
+    restart: unless-stopped
+
+  # Nginx pour le reverse proxy (production)
+  nginx:
+    image: nginx:alpine
+    container_name: proctoflex_nginx
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - proctoflex_network
+    restart: unless-stopped
+
+  # Service de surveillance IA (optionnel)
+  ai_service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.ai
+    container_name: proctoflex_ai
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - MODEL_PATH=/app/models
+    volumes:
+      - ./backend:/app
+      - ./models:/app/models
+    depends_on:
+      - redis
+      - backend
+    networks:
+      - proctoflex_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  proctoflex_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
