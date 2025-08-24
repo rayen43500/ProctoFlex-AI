@@ -1,9 +1,20 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
-import { join } from 'path';
-import { exec } from 'child_process';
-import { promisify } from 'util';
+const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { join } = require('path');
+const { exec } = require('child_process');
+const { promisify } = require('util');
+const { existsSync } = require('fs');
 
 const execAsync = promisify(exec);
+
+// Fonction pour vérifier si le serveur Vite est prêt
+async function checkViteServer(): Promise<boolean> {
+  try {
+    const response = await fetch('http://localhost:5173');
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
 
 // Configuration de sécurité
 app.on('web-contents-created', (event, contents) => {
@@ -23,7 +34,7 @@ app.on('web-contents-created', (event, contents) => {
 });
 
 // Créer la fenêtre principale
-function createWindow(): void {
+async function createWindow(): Promise<void> {
   const mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -33,7 +44,9 @@ function createWindow(): void {
       nodeIntegration: false,
       contextIsolation: true,
       webSecurity: true,
-      preload: join(__dirname, 'preload.js')
+      preload: join(__dirname, 'preload.js'),
+      allowRunningInsecureContent: false,
+      experimentalFeatures: false
     },
     icon: join(__dirname, 'assets/icon.png'),
     titleBarStyle: 'default',
@@ -42,18 +55,35 @@ function createWindow(): void {
 
   // Charger l'application
   if (process.env.NODE_ENV === 'development') {
+    console.log('Mode développement détecté');
+    
     // Attendre que le serveur Vite soit prêt
     const loadDevServer = async () => {
       try {
+        // Vérifier si le serveur Vite est prêt
+        const isViteReady = await checkViteServer();
+        if (!isViteReady) {
+          console.log('Serveur Vite pas encore prêt, nouvelle tentative dans 2 secondes...');
+          setTimeout(loadDevServer, 2000);
+          return;
+        }
+        
+        console.log('Serveur Vite prêt, chargement de l\'URL...');
         await mainWindow.loadURL('http://localhost:5173');
+        console.log('URL chargée avec succès');
         mainWindow.webContents.openDevTools();
+        console.log('Outils de développement ouverts');
       } catch (error) {
-        console.log('Serveur Vite pas encore prêt, nouvelle tentative dans 1 seconde...');
-        setTimeout(loadDevServer, 1000);
+        console.log('Erreur lors du chargement:', (error as Error).message);
+        console.log('Nouvelle tentative dans 3 secondes...');
+        setTimeout(loadDevServer, 3000);
       }
     };
-    loadDevServer();
+    
+    // Commencer à vérifier après 2 secondes
+    setTimeout(loadDevServer, 2000);
   } else {
+    console.log('Mode production détecté');
     mainWindow.loadFile(join(__dirname, 'renderer/index.html'));
   }
 

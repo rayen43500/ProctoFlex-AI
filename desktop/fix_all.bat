@@ -1,34 +1,12 @@
 @echo off
-echo 🚀 ProctoFlex AI Desktop - Démarrage Développement Amélioré
-echo ============================================================
+echo 🔧 ProctoFlex AI - Correction Automatique
+echo =========================================
 echo.
 
-REM Vérifier si Node.js est installé
-node --version >nul 2>&1
-if errorlevel 1 (
-    echo ❌ Node.js n'est pas installé ou n'est pas dans le PATH
-    echo 💡 Installez Node.js depuis https://nodejs.org/
-    pause
-    exit /b 1
-)
+echo 📋 Vérification et correction des problèmes...
+echo.
 
-echo ✅ Node.js détecté
-
-REM Vérifier si les dépendances sont installées
-if not exist "node_modules" (
-    echo 📦 Installation des dépendances...
-    npm install
-    if errorlevel 1 (
-        echo ❌ Erreur lors de l'installation des dépendances
-        pause
-        exit /b 1
-    )
-)
-
-REM Vérifier et corriger les problèmes courants
-echo 🔧 Vérification de la configuration...
-
-REM Vérifier tsconfig.electron.json
+REM 1. Vérifier et créer tsconfig.electron.json
 if not exist "tsconfig.electron.json" (
     echo ⚙️  Création du fichier tsconfig.electron.json...
     echo {> tsconfig.electron.json
@@ -67,7 +45,7 @@ if not exist "tsconfig.electron.json" (
     echo ✅ Fichier tsconfig.electron.json créé
 )
 
-REM Corriger enableRemoteModule
+REM 2. Corriger enableRemoteModule
 findstr /C:"enableRemoteModule" main.ts >nul 2>&1
 if not errorlevel 1 (
     echo ⚙️  Correction de la configuration Electron...
@@ -75,14 +53,15 @@ if not errorlevel 1 (
     echo ✅ Configuration Electron corrigée
 )
 
-REM Vérifier react-hot-toast
+REM 3. Installer react-hot-toast
 npm list react-hot-toast >nul 2>&1
 if errorlevel 1 (
     echo 📦 Installation de react-hot-toast...
     npm install react-hot-toast
+    echo ✅ react-hot-toast installé
 )
 
-REM Copier le fichier preload.js
+REM 4. Copier preload.js
 echo 📄 Copie du fichier preload.js...
 if exist "preload.js" (
     if not exist "dist" mkdir dist
@@ -92,22 +71,28 @@ if exist "preload.js" (
     echo ❌ Fichier preload.js manquant
 )
 
+REM 5. Compiler TypeScript
+echo 🔧 Compilation TypeScript...
+tsc -p tsconfig.electron.json
+if errorlevel 1 (
+    echo ❌ Erreur de compilation TypeScript
+) else (
+    echo ✅ Compilation TypeScript réussie
+)
+
+REM 6. Vérifier les dépendances
+if not exist "node_modules" (
+    echo 📦 Installation des dépendances...
+    npm install
+    echo ✅ Dépendances installées
+)
+
 echo.
-echo 🎯 Démarrage en mode développement...
-echo 💡 Le serveur Vite démarrera d'abord, puis Electron
+echo ✅ Toutes les corrections appliquées !
 echo.
-
-REM Démarrer le serveur Vite en arrière-plan
-echo 📡 Démarrage du serveur Vite...
-start "Vite Dev Server" cmd /k "npm run dev:renderer"
-
-REM Attendre que le serveur soit prêt
-echo ⏳ Attente du serveur Vite...
-timeout /t 3 /nobreak >nul
-
-REM Démarrer Electron
-echo 🖥️  Démarrage d'Electron...
-set NODE_ENV=development
-npm run dev:main
+echo 🚀 Vous pouvez maintenant lancer l'application avec :
+echo    • start_dev.bat (recommandé)
+echo    • npm run dev
+echo.
 
 pause
