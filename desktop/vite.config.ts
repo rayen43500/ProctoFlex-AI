@@ -5,6 +5,9 @@ import { resolve } from 'path';
 export default defineConfig({
   plugins: [react()],
   base: './',
+  optimizeDeps: {
+    exclude: ['electron']
+  },
   build: {
     outDir: 'renderer',
     emptyOutDir: true,
@@ -25,5 +28,8 @@ export default defineConfig({
   },
   define: {
     'process.env': process.env,
+  },
+  ssr: {
+    noExternal: ['electron']
   },
 });

@@ -1,17 +1,33 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
-const { join } = require('path');
+// Imports Node.js pour le main process uniquement
+const electron = require('electron');
+const path = require('path');
 const { exec } = require('child_process');
 const { promisify } = require('util');
-const { existsSync } = require('fs');
+const fs = require('fs');
+
+// Destructuration des modules Electron
+const { app, BrowserWindow, ipcMain, shell } = electron;
+const { join } = path;
+const { existsSync } = fs;
+
+// S'assurer que __dirname est disponible
+if (typeof __dirname === 'undefined') {
+  global.__dirname = path.dirname(require.main?.filename || process.execPath);
+}
+
+// __dirname est automatiquement disponible en CommonJS
 
 const execAsync = promisify(exec);
 
 // Fonction pour vérifier si le serveur Vite est prêt
 async function checkViteServer(): Promise<boolean> {
   try {
+    console.log('Vérification du serveur Vite...');
     const response = await fetch('http://localhost:5173');
+    console.log('Réponse du serveur Vite:', response.status, response.statusText);
     return response.ok;
-  } catch {
+  } catch (error) {
+    console.log('Erreur lors de la vérification du serveur Vite:', error);
     return false;
   }
 }
@@ -46,7 +62,9 @@ async function createWindow(): Promise<void> {
       webSecurity: true,
       preload: join(__dirname, 'preload.js'),
       allowRunningInsecureContent: false,
-      experimentalFeatures: false
+      experimentalFeatures: false,
+      enableRemoteModule: false,
+      sandbox: false
     },
     icon: join(__dirname, 'assets/icon.png'),
     titleBarStyle: 'default',
@@ -54,7 +72,14 @@ async function createWindow(): Promise<void> {
   });
 
   // Charger l'application
-  if (process.env.NODE_ENV === 'development') {
+  // Forcer le mode développement pour utiliser Vite
+  console.log('NODE_ENV:', process.env.NODE_ENV);
+  console.log('ELECTRON_IS_DEV:', process.env.ELECTRON_IS_DEV);
+  
+  // Toujours utiliser le mode développement pour le moment
+  const isDevelopment = true; // process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
+  
+  if (isDevelopment) {
     console.log('Mode développement détecté');
     
     // Attendre que le serveur Vite soit prêt
