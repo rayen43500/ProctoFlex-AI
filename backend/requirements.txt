@@ -1,40 +1,32 @@
-# FastAPI et serveur web
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-python-multipart==0.0.6
+# Dépendances optimisées pour Windows - Backend ProctoFlex AI
+# Seulement les packages essentiels qui fonctionnent sans problèmes
 
-# Base de données
-sqlalchemy==2.0.23
-psycopg2-binary==2.9.9
-alembic==1.12.1
+# Framework web principal
+fastapi>=0.100.0
+uvicorn[standard]>=0.20.0
 
-# Authentification et sécurité
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-python-multipart==0.0.6
+# Utilitaires de base
+python-multipart>=0.0.6
+python-dotenv>=1.0.0
 
-# IA et Computer Vision
-opencv-python>=4.8.0
-mediapipe>=0.10.8
+# Validation des données (version compatible)
+pydantic-settings>=2.0.0
+
+# Base de données SQLite (plus simple que PostgreSQL)
+sqlalchemy>=2.0.0
+
+# Sécurité
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.0
+
+# IA et Computer Vision (versions compatibles Windows)
+opencv-python-headless>=4.8.0
 numpy>=1.24.0
 pillow>=10.0.0
 
-# Audio processing
-librosa==0.10.1
-soundfile==0.12.1
-
-# Utilitaires
-python-dotenv==1.0.0
-pydantic==2.5.0
-pydantic-settings==2.1.0
-
-# WebSocket pour communication temps réel
-websockets==12.0
-
 # Tests
-pytest==7.4.3
-pytest-asyncio==0.21.1
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
 
-# Développement
-black==23.11.0
-flake8==6.1.0
+# WebSockets pour communication temps réel
+websockets>=11.0.0

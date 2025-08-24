@@ -32,7 +32,6 @@ function createWindow(): void {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      enableRemoteModule: false,
       webSecurity: true,
       preload: join(__dirname, 'preload.js')
     },
@@ -43,8 +42,17 @@ function createWindow(): void {
 
   // Charger l'application
   if (process.env.NODE_ENV === 'development') {
-    mainWindow.loadURL('http://localhost:5173');
-    mainWindow.webContents.openDevTools();
+    // Attendre que le serveur Vite soit prêt
+    const loadDevServer = async () => {
+      try {
+        await mainWindow.loadURL('http://localhost:5173');
+        mainWindow.webContents.openDevTools();
+      } catch (error) {
+        console.log('Serveur Vite pas encore prêt, nouvelle tentative dans 1 seconde...');
+        setTimeout(loadDevServer, 1000);
+      }
+    };
+    loadDevServer();
   } else {
     mainWindow.loadFile(join(__dirname, 'renderer/index.html'));
   }

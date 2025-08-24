@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Script de démarrage rapide pour ProctoFlex AI Backend
+Script de démarrage simplifié pour ProctoFlex AI Backend
+Ne dépend pas du fichier .env pour éviter les problèmes d'encodage
 """
 
 import os
@@ -12,19 +13,13 @@ def check_environment():
     """Vérifie la configuration de l'environnement"""
     print("🔍 Vérification de l'environnement...")
     
-    # Vérifier le fichier .env
-    if not Path(".env").exists():
-        print("⚠️  Fichier .env non trouvé")
-        print("💡 Exécutez 'python install.py' pour créer la configuration")
-        return False
-    
     # Vérifier les répertoires
     required_dirs = ["logs", "uploads"]
     for directory in required_dirs:
         if not Path(directory).exists():
             print(f"⚠️  Répertoire {directory} manquant")
-            print("💡 Exécutez 'python install.py' pour créer les répertoires")
-            return False
+            Path(directory).mkdir(exist_ok=True)
+            print(f"✅ Répertoire {directory} créé")
     
     print("✅ Environnement configuré")
     return True
@@ -33,10 +28,10 @@ def start_server():
     """Démarre le serveur FastAPI"""
     print("\n🚀 Démarrage du serveur ProctoFlex AI...")
     
-    # Configuration par défaut
-    host = os.getenv("HOST", "localhost")
-    port = int(os.getenv("PORT", "8000"))
-    debug = os.getenv("DEBUG", "true").lower() == "true"
+    # Configuration directe (pas de fichier .env)
+    host = "localhost"
+    port = 8000
+    debug = True
     
     print(f"📍 Serveur: http://{host}:{port}")
     print(f"🔧 Mode debug: {debug}")
@@ -60,13 +55,12 @@ def start_server():
 
 def main():
     """Fonction principale"""
-    print("🎯 ProctoFlex AI - Script de Démarrage")
-    print("=" * 40)
+    print("🎯 ProctoFlex AI - Script de Démarrage Simplifié")
+    print("=" * 50)
     
     # Vérifier l'environnement
     if not check_environment():
         print("\n❌ Configuration manquante")
-        print("💡 Exécutez d'abord: python install.py")
         sys.exit(1)
     
     # Démarrer le serveur
