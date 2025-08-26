@@ -33,9 +33,9 @@ async function checkViteServer(): Promise<boolean> {
 }
 
 // Configuration de sécurité
-app.on('web-contents-created', (event, contents) => {
+app.on('web-contents-created', (event: any, contents: any) => {
   // Bloquer la navigation vers des sites externes
-  contents.on('will-navigate', (event, navigationUrl) => {
+  contents.on('will-navigate', (event: any, navigationUrl: string) => {
     const parsedUrl = new URL(navigationUrl);
     if (parsedUrl.origin !== 'http://localhost:5173') {
       event.preventDefault();
@@ -43,7 +43,7 @@ app.on('web-contents-created', (event, contents) => {
   });
 
   // Bloquer l'ouverture de nouvelles fenêtres
-  contents.setWindowOpenHandler(({ url }) => {
+  contents.setWindowOpenHandler(({ url }: { url: string }) => {
     shell.openExternal(url);
     return { action: 'deny' };
   });
@@ -154,7 +154,7 @@ ipcMain.handle('capture-screen', async () => {
   }
 });
 
-ipcMain.handle('log-security-alert', async (event, alertData) => {
+ipcMain.handle('log-security-alert', async (event: any, alertData: any) => {
   try {
     console.log('Alerte de sécurité:', alertData);
     // Ici, vous pouvez implémenter la journalisation locale

@@ -1,57 +1,37 @@
 @echo off
-echo 🚀 ProctoFlex AI - Démarrage du Backend
-echo =======================================
+echo ========================================
+echo    ProctoFlex AI - Backend Startup
+echo ========================================
 echo.
 
-REM Vérifier si Python est installé
-python --version >nul 2>&1
-if errorlevel 1 (
-    echo ❌ Python n'est pas installé ou n'est pas dans le PATH
-    echo 💡 Installez Python depuis https://python.org/
-    pause
-    exit /b 1
-)
-
-echo ✅ Python détecté
-
-REM Aller dans le répertoire backend
 cd backend
 
-REM Vérifier si le répertoire backend existe
-if not exist "main_simple.py" (
-    echo ❌ Répertoire backend non trouvé ou fichiers manquants
-    echo 💡 Assurez-vous d'être dans le bon répertoire
-    pause
-    exit /b 1
-)
+echo [1/4] Checking Python version...
+python --version
 
-echo ✅ Répertoire backend trouvé
-
-REM Vérifier si les dépendances sont installées
-if not exist "requirements.txt" (
-    echo ❌ Fichier requirements.txt manquant
-    echo 💡 Exécutez d'abord l'installation
-    pause
-    exit /b 1
-)
-
-REM Vérifier si uvicorn est installé
-python -c "import uvicorn" >nul 2>&1
-if errorlevel 1 (
-    echo 📦 Installation des dépendances...
-    python install_simple.py
-    if errorlevel 1 (
-        echo ❌ Erreur lors de l'installation des dépendances
-        pause
-        exit /b 1
-    )
+echo.
+echo [2/4] Creating virtual environment...
+if not exist "venv" (
+    python -m venv venv
+    echo Virtual environment created.
+) else (
+    echo Virtual environment already exists.
 )
 
 echo.
-echo 🎯 Démarrage du serveur backend...
-echo 💡 Le serveur sera accessible sur http://localhost:8000
-echo.
+echo [3/4] Activating virtual environment...
+call venv\Scripts\activate
 
-python start_simple.py
+echo.
+echo [4/4] Installing dependencies...
+pip install --upgrade pip
+pip install -r requirements-simple.txt
+
+echo.
+echo [5/5] Starting backend server...
+echo Backend will be available at: http://localhost:8000
+echo API Documentation: http://localhost:8000/docs
+echo.
+python main_simple.py
 
 pause

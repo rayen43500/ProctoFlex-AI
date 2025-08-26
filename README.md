@@ -1,103 +1,231 @@
-# ProctoFlex AI
+# 🎓 ProctoFlex AI - Système de Surveillance d'Examens
 
-Plateforme de surveillance flexible pour examens pratiques en ligne avec vérification d'identité et détection IA multimodale.
+Un système complet de surveillance intelligente pour examens en ligne avec reconnaissance faciale, détection d'objets et monitoring en temps réel.
 
-## 🎯 Objectif
+## 🚀 Démarrage Rapide
 
-Assurer une surveillance fiable et respectueuse des examens pratiques à distance, spécialement conçue pour les épreuves nécessitant des logiciels installés localement (IDE, AutoCAD, Excel, etc.).
-
-## 🏗️ Architecture
-
-Le projet est divisé en trois composants principaux :
-
-- **Frontend Admin** (`/frontend`) - Interface web React.js pour les administrateurs
-- **Backend** (`/backend`) - API FastAPI avec moteur IA et base PostgreSQL
-- **Client Desktop** (`/desktop`) - Application Electron pour les étudiants
-
-## 🚀 Installation et Démarrage
-
-### Prérequis
-
-- Python 3.9+
-- Node.js 18+
-- PostgreSQL 13+
-- Docker (optionnel)
-
-### Démarrage Rapide
-
-1. **Cloner le projet**
+### Option 1: Démarrage Automatique (Recommandé)
 ```bash
-git clone <repository-url>
-cd proctoflex-ai
+# Double-cliquez sur le fichier
+start_all.bat
 ```
 
-2. **Backend**
+### Option 2: Démarrage Manuel
+
+#### Backend (API)
 ```bash
+# Option A: Script automatique
+start_backend.bat
+
+# Option B: Manuel
 cd backend
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-python main.py
+venv\Scripts\activate
+pip install -r requirements-simple.txt
+python main_simple.py
 ```
 
-3. **Frontend Admin**
+#### Desktop Application
 ```bash
-cd frontend
-npm install
-npm run dev
-```
+# Option A: Script automatique
+start_desktop.bat
 
-4. **Client Desktop**
-```bash
+# Option B: Manuel
 cd desktop
 npm install
 npm run dev
 ```
 
-## 📋 Fonctionnalités MVP
+## 📋 Prérequis
 
-### Phase 1 (Semaines 1-3)
-- [ ] Application desktop de base (Electron)
-- [ ] Verrouillage sélectif des applications
-- [ ] Authentification par reconnaissance faciale
+- **Python 3.13+** (installé automatiquement)
+- **Node.js 18+** (installé automatiquement)
+- **Git** (pour cloner le projet)
 
-### Phase 2 (Semaines 4-6)
-- [ ] Dashboard administrateur
-- [ ] Enregistrement multimédia (webcam, micro, écran)
+## 🏗️ Architecture
 
-### Phase 3 (Semaines 7-9)
-- [ ] Moteur IA de détection
-- [ ] Système d'alertes intelligent
+```
+proctoflex-ai/
+├── backend/                 # API FastAPI
+│   ├── main_simple.py      # Serveur principal (version simplifiée)
+│   ├── requirements-simple.txt # Dépendances Python
+│   └── app/                # Modules de l'application
+├── desktop/                # Application Electron
+│   ├── src/renderer/       # Interface React
+│   ├── main.ts            # Processus principal Electron
+│   └── package.json       # Dépendances Node.js
+├── frontend/               # Interface web admin
+└── docker-compose.yml      # Configuration Docker
+```
 
-### Phase 4 (Semaines 10-12)
-- [ ] Tests utilisateurs
-- [ ] Finalisation et documentation
+## 🌐 Services Disponibles
 
-## 🔒 Sécurité et RGPD
+| Service | URL | Description |
+|---------|-----|-------------|
+| **Backend API** | http://localhost:8000 | API REST principale |
+| **Documentation API** | http://localhost:8000/docs | Swagger UI |
+| **Health Check** | http://localhost:8000/health | État du serveur |
+| **Desktop App** | Electron Window | Application native |
+| **Frontend Admin** | http://localhost:3000 | Interface web |
 
-- Chiffrement TLS 1.3
-- Données localisées en Europe
-- Suppression automatique après 90 jours
-- Consentement explicite requis
+## 🔧 Configuration
 
-## 👥 Équipe
+### Variables d'Environnement Backend
+```bash
+# backend/.env
+HOST=localhost
+PORT=8000
+SECRET_KEY=your-secret-key
+DATABASE_URL=sqlite:///./proctoflex.db
+```
 
-- **Encadrant** : Abdlekrim Mars
-- **Développeurs** : Nesrine Touiti, Sarra Lahgui, Chaima Jbara
-- **Institution** : ESPRIM - École Supérieure Privée d'Ingénieurs de Monastir
+### Configuration Desktop
+```json
+// desktop/package.json
+{
+  "scripts": {
+    "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:main\"",
+    "dev:renderer": "vite",
+    "dev:main": "tsc && electron ."
+  }
+}
+```
 
-## 📅 Planning
+## 📱 Fonctionnalités
 
-- **Cadrage** : 22 juin 2024 ✅
-- **Sprint 1** : Semaines 1-3
-- **Sprint 2** : Semaines 4-6  
-- **Sprint 3** : Semaines 7-9
-- **Sprint 4** : Semaines 10-12
-- **Livraison** : Août 2025
+### ✅ Implémentées
+- [x] **Backend API** - FastAPI avec endpoints REST
+- [x] **Desktop App** - Application Electron avec React
+- [x] **Interface Moderne** - Design responsive avec Tailwind CSS
+- [x] **Authentification** - Système de login simulé
+- [x] **Dashboard** - Interface de surveillance
+- [x] **Monitoring** - Surveillance des processus système
+- [x] **Documentation** - API docs avec Swagger
 
-## 📚 Documentation
+### 🔄 En Développement
+- [ ] **Reconnaissance Faciale** - OpenCV + face_recognition
+- [ ] **Détection d'Objets** - YOLO integration
+- [ ] **Base de Données** - PostgreSQL + Redis
+- [ ] **WebSocket** - Communication temps réel
+- [ ] **Notifications** - Alertes en temps réel
 
-- [Manuel Administrateur](./docs/admin-manual.md)
-- [Manuel Étudiant](./docs/student-manual.md)
-- [API Documentation](./docs/api.md)
-- [Architecture Technique](./docs/architecture.md)
+## 🛠️ Développement
+
+### Structure du Code
+```
+backend/
+├── app/
+│   ├── api/v1/           # Endpoints API
+│   ├── core/             # Configuration
+│   ├── models/           # Modèles de données
+│   └── ai/               # Services IA
+└── main_simple.py        # Point d'entrée
+
+desktop/
+├── src/renderer/
+│   ├── components/       # Composants React
+│   ├── contexts/         # Contextes React
+│   ├── styles/           # Styles CSS/SCSS
+│   └── App.tsx          # Application principale
+└── main.ts              # Processus Electron
+```
+
+### Scripts Utiles
+```bash
+# Backend
+cd backend
+python main_simple.py          # Démarrer le serveur
+pip install -r requirements-simple.txt  # Installer dépendances
+
+# Desktop
+cd desktop
+npm run dev                    # Mode développement
+npm run build                  # Build production
+npm run electron:build         # Build Electron
+```
+
+## 🔍 Dépannage
+
+### Problèmes Courants
+
+#### Backend ne démarre pas
+```bash
+# Vérifier Python
+python --version
+
+# Réinstaller les dépendances
+pip uninstall -r requirements-simple.txt -y
+pip install -r requirements-simple.txt
+```
+
+#### Desktop App ne charge pas
+```bash
+# Vérifier Node.js
+node --version
+
+# Nettoyer et réinstaller
+rm -rf node_modules package-lock.json
+npm install
+```
+
+#### Port déjà utilisé
+```bash
+# Windows
+netstat -ano | findstr :8000
+taskkill /PID <PID> /F
+
+# Linux/Mac
+lsof -i :8000
+kill -9 <PID>
+```
+
+## 📊 Monitoring
+
+### Logs Backend
+```bash
+# Logs en temps réel
+tail -f backend/logs/app.log
+
+# Logs d'erreur
+tail -f backend/logs/error.log
+```
+
+### Logs Desktop
+```bash
+# Console Electron
+# Voir la console dans l'application (F12)
+```
+
+## 🚀 Déploiement
+
+### Docker (Recommandé)
+```bash
+docker-compose up -d
+```
+
+### Production
+```bash
+# Backend
+cd backend
+pip install -r requirements-simple.txt
+python main_simple.py
+
+# Desktop
+cd desktop
+npm run build
+npm run electron:build
+```
+
+## 📞 Support
+
+- **Documentation API**: http://localhost:8000/docs
+- **Issues**: GitHub Issues
+- **Email**: support@proctoflex.ai
+
+## 📄 Licence
+
+MIT License - Voir LICENSE pour plus de détails.
+
+---
+
+**ProctoFlex AI** - Surveillance intelligente pour examens en ligne 🎓

@@ -1,71 +1,108 @@
+#!/usr/bin/env python3
 """
-ProctoFlex AI - Backend API (Version Simplifiée)
-Serveur FastAPI pour la surveillance d'examens en ligne
+ProctoFlex AI - Backend API
+Version simplifiée pour le développement
 """
 
+import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.core.config import settings
+from fastapi.responses import JSONResponse
 
-# Configuration de l'application FastAPI
+# Configuration de base
 app = FastAPI(
     title="ProctoFlex AI API",
-    description="API de surveillance intelligente pour examens en ligne",
-    version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc"
+    description="API de surveillance pour examens en ligne",
+    version="1.0.0"
 )
 
 # Configuration CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Route de santé
-@app.get("/health")
-async def health_check():
-    """Vérification de l'état du serveur"""
-    return {
-        "status": "healthy",
-        "service": "ProctoFlex AI Backend",
-        "version": "1.0.0",
-        "message": "Serveur démarré avec succès !"
-    }
-
-# Route racine
 @app.get("/")
 async def root():
-    """Page d'accueil de l'API"""
+    """Point d'entrée principal"""
     return {
-        "message": "Bienvenue sur ProctoFlex AI API",
+        "message": "ProctoFlex AI API",
         "version": "1.0.0",
-        "docs": "/docs",
-        "health": "/health"
+        "status": "running"
     }
 
-# Route de test
-@app.get("/test")
-async def test():
-    """Route de test simple"""
+@app.get("/health")
+async def health_check():
+    """Vérification de santé de l'API"""
     return {
-        "message": "Test réussi !",
-        "config": {
-            "host": settings.HOST,
-            "port": settings.PORT,
-            "debug": settings.DEBUG
+        "status": "healthy",
+        "service": "proctoflex-backend",
+        "version": "1.0.0"
+    }
+
+@app.get("/api/v1/users")
+async def get_users():
+    """Liste des utilisateurs (simulée)"""
+    return [
+        {
+            "id": 1,
+            "username": "admin",
+            "email": "admin@proctoflex.ai",
+            "role": "admin"
+        },
+        {
+            "id": 2,
+            "username": "student1",
+            "email": "student1@example.com",
+            "role": "student"
+        }
+    ]
+
+@app.get("/api/v1/exams")
+async def get_exams():
+    """Liste des examens (simulée)"""
+    return [
+        {
+            "id": 1,
+            "title": "Examen de Programmation",
+            "duration": 120,
+            "status": "active"
+        },
+        {
+            "id": 2,
+            "title": "Examen de Mathématiques",
+            "duration": 90,
+            "status": "scheduled"
+        }
+    ]
+
+@app.post("/api/v1/auth/login")
+async def login():
+    """Authentification (simulée)"""
+    return {
+        "access_token": "fake_token_123",
+        "token_type": "bearer",
+        "user": {
+            "id": 1,
+            "username": "admin",
+            "role": "admin"
         }
     }
 
 if __name__ == "__main__":
-    import uvicorn
+    print("🚀 Démarrage de ProctoFlex AI Backend...")
+    print("📍 API disponible sur: http://localhost:8000")
+    print("📚 Documentation: http://localhost:8000/docs")
+    print("🔍 Health check: http://localhost:8000/health")
+    print()
+    
     uvicorn.run(
         "main_simple:app",
-        host=settings.HOST,
-        port=settings.PORT,
-        reload=settings.DEBUG,
+        host="localhost",
+        port=8000,
+        reload=True,
         log_level="info"
     )

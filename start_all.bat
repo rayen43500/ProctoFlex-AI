@@ -1,53 +1,36 @@
 @echo off
-echo 🚀 ProctoFlex AI - Démarrage Complet
-echo ====================================
+echo ========================================
+echo    ProctoFlex AI - Complete Startup
+echo ========================================
 echo.
 
-echo 📋 Vérification des prérequis...
-echo.
-
-REM Vérifier Python
-python --version >nul 2>&1
-if errorlevel 1 (
-    echo ❌ Python n'est pas installé
-    echo 💡 Installez Python depuis https://python.org/
-    pause
-    exit /b 1
-)
-echo ✅ Python détecté
-
-REM Vérifier Node.js
-node --version >nul 2>&1
-if errorlevel 1 (
-    echo ❌ Node.js n'est pas installé
-    echo 💡 Installez Node.js depuis https://nodejs.org/
-    pause
-    exit /b 1
-)
-echo ✅ Node.js détecté
+echo [1/4] Starting Backend...
+start "ProctoFlex Backend" cmd /k "cd backend && python -m venv venv && call venv\Scripts\activate && pip install -r requirements-simple.txt && python main_simple.py"
 
 echo.
-echo 🎯 Démarrage des services...
-echo.
-
-echo 1️⃣ Démarrage du Backend...
-start "ProctoFlex Backend" cmd /k "cd backend && python start_simple.py"
-
-echo ⏳ Attente du démarrage du backend...
-timeout /t 5 /nobreak >nul
-
-echo 2️⃣ Démarrage de l'Application Desktop...
-start "ProctoFlex Desktop" cmd /k "cd desktop && npm run dev"
+echo [2/4] Waiting for backend to start...
+timeout /t 10 /nobreak > nul
 
 echo.
-echo ✅ Services démarrés !
-echo.
-echo 🌐 Accès aux applications :
-echo    • Backend API: http://localhost:8000
-echo    • Documentation API: http://localhost:8000/docs
-echo    • Application Desktop: Se lance automatiquement
-echo.
-echo 💡 Pour arrêter les services, fermez les fenêtres de commande
-echo.
+echo [3/4] Starting Desktop Application...
+start "ProctoFlex Desktop" cmd /k "cd desktop && npm install && npm run dev"
 
-pause
+echo.
+echo [4/4] Opening web interfaces...
+timeout /t 5 /nobreak > nul
+start http://localhost:8000/docs
+start http://localhost:3000
+
+echo.
+echo ========================================
+echo    ProctoFlex AI Started Successfully!
+echo ========================================
+echo.
+echo Services available at:
+echo - Backend API: http://localhost:8000
+echo - API Docs: http://localhost:8000/docs
+echo - Frontend Admin: http://localhost:3000
+echo - Desktop App: Running in Electron window
+echo.
+echo Press any key to exit...
+pause > nul
