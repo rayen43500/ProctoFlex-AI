@@ -4,16 +4,16 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 
 // Composants
-import Layout from './components/Layout/Layout';
-import Login from './pages/Auth/Login';
-import Dashboard from './pages/Dashboard/Dashboard';
-import Exams from './pages/Exams/Exams';
-import Sessions from './pages/Sessions/Sessions';
-import Users from './pages/Users/Users';
-import Settings from './pages/Settings/Settings';
+import Layout from '@/components/Layout/Layout';
+import Login from '@/pages/Auth/Login';
+import Dashboard from '@/pages/Dashboard/Dashboard';
+import Exams from '@/pages/Exams/Exams';
+import Sessions from '@/pages/Sessions/Sessions';
+import Users from '@/pages/Users/Users';
+import Settings from '@/pages/Settings/Settings';
 
 // Hooks et contextes
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 
 // Configuration React Query
 const queryClient = new QueryClient({
