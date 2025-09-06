@@ -68,3 +68,7 @@ npm run dev
 **Port occupé** : Vérifier qu'aucun autre service n'utilise les ports 8000/3000
 
 **Cache Vite** : Supprimer `frontend/node_modules/.vite` et redémarrer
+
+
+
+docker-compose -f docker-compose.dev.yml up -d
