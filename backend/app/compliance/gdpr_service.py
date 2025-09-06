@@ -76,7 +76,7 @@ class DataRetentionPolicy:
     anonymization_after: Optional[int] = None  # jours avant anonymisation
     archiving_after: Optional[int] = None  # jours avant archivage
 
-@datacart
+@dataclass
 class DataProcessingRecord:
     """Enregistrement de traitement de données"""
     id: str
@@ -110,12 +110,12 @@ class DataBreach:
     id: str
     breach_date: datetime
     discovery_date: datetime
-    notification_date: Optional[datetime] = None
     data_categories: List[DataCategory]
     affected_subjects: int
     severity: str  # "low", "medium", "high", "critical"
     description: str
     measures_taken: List[str]
+    notification_date: Optional[datetime] = None
     authorities_notified: bool = False
     subjects_notified: bool = False
 

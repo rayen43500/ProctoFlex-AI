@@ -3,9 +3,18 @@ Module de reconnaissance faciale avancée avec OpenCV et MediaPipe
 ProctoFlex AI - Université de Monastir - ESPRIM
 """
 
-import cv2
-import numpy as np
-import mediapipe as mp
+try:
+    import cv2
+    import numpy as np
+    import mediapipe as mp
+    AI_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: AI dependencies not available: {e}")
+    AI_AVAILABLE = False
+    # Créer des objets factices pour éviter les erreurs
+    cv2 = None
+    np = None
+    mp = None
 from typing import Dict, List, Tuple, Optional, Any
 import logging
 from dataclasses import dataclass
@@ -37,7 +46,7 @@ class FaceDetectionResult:
     faces_detected: int
     face_locations: List[Dict[str, int]]
     face_landmarks: List[List[Tuple[int, int]]]
-    face_encodings: List[np.ndarray]
+    face_encodings: List[Any]
     quality_scores: List[float]
     gaze_directions: List[GazeDirection]
     confidence_scores: List[float]
@@ -60,6 +69,15 @@ class AdvancedFaceRecognitionService:
     """Service de reconnaissance faciale avancée avec MediaPipe et OpenCV"""
     
     def __init__(self):
+        if not AI_AVAILABLE:
+            logger.warning("AI dependencies not available, using mock implementation")
+            self.face_detection = None
+            self.face_mesh = None
+            self.mp_face_detection = None
+            self.mp_face_mesh = None
+            self.mp_drawing = None
+            return
+            
         # Initialisation de MediaPipe
         self.mp_face_detection = mp.solutions.face_detection
         self.mp_face_mesh = mp.solutions.face_mesh
@@ -89,7 +107,7 @@ class AdvancedFaceRecognitionService:
         
         logger.info("Service de reconnaissance faciale avancée initialisé")
     
-    def detect_faces_advanced(self, image: np.ndarray) -> FaceDetectionResult:
+    def detect_faces_advanced(self, image) -> FaceDetectionResult:
         """
         Détection faciale avancée avec MediaPipe et OpenCV
         
@@ -100,6 +118,18 @@ class AdvancedFaceRecognitionService:
             FaceDetectionResult: Résultat complet de la détection
         """
         start_time = time.time()
+        
+        if not AI_AVAILABLE:
+            return FaceDetectionResult(
+                faces_detected=0,
+                face_locations=[],
+                face_landmarks=[],
+                face_encodings=[],
+                quality_scores=[],
+                gaze_directions=[],
+                confidence_scores=[],
+                processing_time=time.time() - start_time
+            )
         
         try:
             # Convertir BGR vers RGB pour MediaPipe
@@ -330,7 +360,7 @@ class AdvancedFaceRecognitionService:
                 processing_time=time.time() - start_time
             )
     
-    def _calculate_face_quality(self, face_roi: np.ndarray) -> float:
+    def _calculate_face_quality(self, face_roi) -> float:
         """Calcule la qualité d'un visage détecté"""
         try:
             if face_roi.size == 0:
@@ -368,7 +398,7 @@ class AdvancedFaceRecognitionService:
             logger.error(f"Erreur lors du calcul de la qualité: {e}")
             return 0.0
     
-    def _encode_face(self, face_roi: np.ndarray) -> np.ndarray:
+    def _encode_face(self, face_roi) -> Any:
         """Encode un visage en vecteur de caractéristiques"""
         try:
             # Redimensionner le visage
@@ -459,7 +489,7 @@ class AdvancedFaceRecognitionService:
             logger.error(f"Erreur lors du calcul du centre de l'œil: {e}")
             return None
     
-    def _detect_spoofing(self, image: np.ndarray) -> bool:
+    def _detect_spoofing(self, image) -> bool:
         """Détecte les tentatives de spoofing (photos, vidéos)"""
         try:
             # Méthodes de détection de spoofing basiques
@@ -483,7 +513,7 @@ class AdvancedFaceRecognitionService:
             logger.error(f"Erreur lors de la détection de spoofing: {e}")
             return False
     
-    def _analyze_skin_texture(self, image: np.ndarray) -> float:
+    def _analyze_skin_texture(self, image) -> float:
         """Analyse la texture de la peau pour détecter les faux visages"""
         try:
             # Convertir en HSV
@@ -506,7 +536,7 @@ class AdvancedFaceRecognitionService:
             logger.error(f"Erreur lors de l'analyse de la texture: {e}")
             return 0.5
     
-    def _decode_base64_image(self, image_data: str) -> Optional[np.ndarray]:
+    def _decode_base64_image(self, image_data: str):
         """Décode une image base64 en array numpy"""
         try:
             if ',' in image_data:

@@ -1,0 +1,31 @@
+[
+  {
+    "timestamp": "2025-09-06T15:40:53.064906",
+    "event_type": "consent_recorded",
+    "student_id": "test_student",
+    "details": {
+      "consent_id": "5c5d0556-2ea6-456b-922d-34ebbf27bac6",
+      "consent_given": true,
+      "data_categories": [
+        "identification",
+        "biometric"
+      ],
+      "purposes": [
+        "identity_verification",
+        "exam_surveillance"
+      ]
+    }
+  },
+  {
+    "timestamp": "2025-09-06T15:40:53.169774",
+    "event_type": "data_processing_recorded",
+    "student_id": "test_student",
+    "details": {
+      "processing_id": "b2a1636c-c460-4f9a-b3ba-891367a4e6f7",
+      "data_categories": [
+        "biometric"
+      ],
+      "purpose": "identity_verification"
+    }
+  }
+]

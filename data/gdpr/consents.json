@@ -1,0 +1,22 @@
+[
+  {
+    "id": "5c5d0556-2ea6-456b-922d-34ebbf27bac6",
+    "student_id": "test_student",
+    "data_categories": [
+      "DataCategory.IDENTIFICATION",
+      "DataCategory.BIOMETRIC"
+    ],
+    "processing_purposes": [
+      "ProcessingPurpose.IDENTITY_VERIFICATION",
+      "ProcessingPurpose.EXAM_SURVEILLANCE"
+    ],
+    "legal_basis": "LegalBasis.CONSENT",
+    "consent_given": true,
+    "consent_date": "2025-09-06 15:40:53.057628",
+    "consent_method": "explicit",
+    "withdrawal_date": null,
+    "consent_text": "J'accepte le traitement de mes données personnelles",
+    "ip_address": "",
+    "user_agent": ""
+  }
+]

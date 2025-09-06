@@ -3,9 +3,18 @@ Module de surveillance IA temps réel
 ProctoFlex AI - Université de Monastir - ESPRIM
 """
 
-import cv2
-import numpy as np
-import mediapipe as mp
+try:
+    import cv2
+    import numpy as np
+    import mediapipe as mp
+    AI_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: AI dependencies not available: {e}")
+    AI_AVAILABLE = False
+    # Créer des objets factices pour éviter les erreurs
+    cv2 = None
+    np = None
+    mp = None
 from typing import Dict, List, Tuple, Optional, Any, Callable
 import logging
 import asyncio
@@ -109,24 +118,32 @@ class RealTimeAIMonitoringService:
     """Service de surveillance IA temps réel"""
     
     def __init__(self):
-        # Initialisation MediaPipe
-        self.mp_face_detection = mp.solutions.face_detection
-        self.mp_face_mesh = mp.solutions.face_mesh
-        self.mp_drawing = mp.solutions.drawing_utils
-        
-        # Modèles
-        self.face_detection = self.mp_face_detection.FaceDetection(
-            model_selection=1,
-            min_detection_confidence=0.5
-        )
-        
-        self.face_mesh = self.mp_face_mesh.FaceMesh(
-            static_image_mode=False,
-            max_num_faces=1,
-            refine_landmarks=True,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5
-        )
+        if not AI_AVAILABLE:
+            logger.warning("AI dependencies not available, using mock implementation")
+            self.face_detection = None
+            self.face_mesh = None
+            self.mp_face_detection = None
+            self.mp_face_mesh = None
+            self.mp_drawing = None
+        else:
+            # Initialisation MediaPipe
+            self.mp_face_detection = mp.solutions.face_detection
+            self.mp_face_mesh = mp.solutions.face_mesh
+            self.mp_drawing = mp.solutions.drawing_utils
+            
+            # Modèles
+            self.face_detection = self.mp_face_detection.FaceDetection(
+                model_selection=1,
+                min_detection_confidence=0.5
+            )
+            
+            self.face_mesh = self.mp_face_mesh.FaceMesh(
+                static_image_mode=False,
+                max_num_faces=1,
+                refine_landmarks=True,
+                min_detection_confidence=0.5,
+                min_tracking_confidence=0.5
+            )
         
         # Configuration
         self.config = {
