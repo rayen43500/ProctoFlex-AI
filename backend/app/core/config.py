@@ -13,8 +13,8 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     
     # Base de données
-    DATABASE_URL: str = "postgresql://user:password@localhost:5432/proctoflex"
-    DATABASE_TEST_URL: str = "postgresql://user:password@localhost:5432/proctoflex_test"
+    DATABASE_URL: str = "postgresql://root:root@localhost:5432/proctoflex"
+    DATABASE_TEST_URL: str = "postgresql://root:root@localhost:5432/proctoflex_test"
     
     # Sécurité
     SECRET_KEY: str = "your-secret-key-change-in-production"
