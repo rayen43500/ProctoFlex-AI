@@ -278,6 +278,15 @@ async def surveillance_health():
         "message": "Services de surveillance simulés"
     }
 
+# Alias simples pour l'app desktop (routes plus courtes)
+@app.post("/api/v1/surveillance/start")
+async def surveillance_start_simple():
+    return {"success": True, "message": "Surveillance démarrée (simple)"}
+
+@app.post("/api/v1/surveillance/stop")
+async def surveillance_stop_simple():
+    return {"success": True, "message": "Surveillance arrêtée (simple)"}
+
 # Routes IA (simulées)
 @app.post("/api/v1/ai/verify-identity")
 async def verify_identity(data: dict):
