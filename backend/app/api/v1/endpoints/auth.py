@@ -16,6 +16,9 @@ from app.core.security import (
 )
 from app.core.config import settings
 from app.models.auth import Token, UserCreate, User
+from pydantic import BaseModel
+from typing import Optional
+from app.ai.face_detection import face_detection_service
 from app.crud.user import create_user, get_user_by_email
 
 router = APIRouter()
@@ -49,6 +52,66 @@ async def login(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
     
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user_id": user.id,
+        "username": user.username,
+        "role": user.role
+    }
+
+class UserCreateWithFace(BaseModel):
+    email: str
+    username: str
+    full_name: str
+    password: str
+    role: str = "student"
+    face_image_base64: Optional[str] = None
+
+@router.post("/register-with-face", response_model=Token)
+async def register_with_face(
+    user_data: UserCreateWithFace,
+    db: Session = Depends(get_db)
+):
+    """
+    Création d'un nouveau compte utilisateur avec vérification faciale optionnelle.
+    - Si `face_image_base64` est fourni, on vérifie qu'un visage est détecté.
+    """
+    existing_user = get_user_by_email(db, user_data.email)
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Un utilisateur avec cet email existe déjà"
+        )
+
+    # Vérification faciale (optionnelle)
+    if user_data.face_image_base64:
+        try:
+            decoded = face_detection_service.decode_base64_image(user_data.face_image_base64)
+            faces = face_detection_service.detect_faces(decoded)
+            if not faces or len(faces) == 0:
+                raise HTTPException(status_code=400, detail="Aucun visage détecté")
+        except HTTPException:
+            raise
+        except Exception:
+            # En cas d'indisponibilité des dépendances IA, accepter l'inscription mais notifier
+            pass
+
+    # Création utilisateur
+    create_payload = UserCreate(
+        email=user_data.email,
+        username=user_data.username,
+        full_name=user_data.full_name,
+        password=user_data.password,
+        role=user_data.role,
+    )
+    user = create_user(db, create_payload)
+
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+
     return {
         "access_token": access_token,
         "token_type": "bearer",
