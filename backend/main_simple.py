@@ -287,6 +287,49 @@ async def surveillance_start_simple():
 async def surveillance_stop_simple():
     return {"success": True, "message": "Surveillance arrêtée (simple)"}
 
+from datetime import datetime
+from PIL import Image, ImageStat
+import base64, io
+
+@app.post("/api/v1/surveillance/analyze")
+async def surveillance_analyze(payload: dict):
+    """
+    Analyse simplifiée et déterministe (pas d'aléatoire):
+    - no_frame: si frame manquante
+    - low_light: si luminosité moyenne très faible
+    - blur_suspected: si variance faible (image très homogène)
+    """
+    timestamp = payload.get("timestamp") or datetime.utcnow().isoformat()
+    video_frame = payload.get("video_frame")  # base64 data URL ou base64 pur
+
+    alerts = []
+    if not video_frame:
+        alerts.append({"type": "no_frame", "severity": "high", "message": "Aucune image reçue"})
+    else:
+        try:
+            data = video_frame.split(',')[1] if ',' in video_frame else video_frame
+            img_bytes = base64.b64decode(data)
+            img = Image.open(io.BytesIO(img_bytes)).convert('L')  # gris
+            stat = ImageStat.Stat(img)
+            mean_brightness = stat.mean[0]
+            # variance approx via var[0]
+            variance = stat.var[0] if hasattr(stat, 'var') else 0.0
+
+            if mean_brightness < 25:
+                alerts.append({"type": "low_light", "severity": "medium", "message": "Luminosité très faible"})
+            if variance < 50:
+                alerts.append({"type": "blur_suspected", "severity": "medium", "message": "Image trop uniforme (possible flou/occlusion)"})
+        except Exception:
+            alerts.append({"type": "decode_error", "severity": "low", "message": "Impossible d'analyser l'image"})
+
+    overall_risk = "low"
+    if any(a["severity"] == "high" for a in alerts):
+        overall_risk = "high"
+    elif any(a["severity"] == "medium" for a in alerts):
+        overall_risk = "medium"
+
+    return {"timestamp": timestamp, "alerts": alerts, "overall_risk": overall_risk}
+
 # Routes IA (simulées)
 @app.post("/api/v1/ai/verify-identity")
 async def verify_identity(data: dict):
