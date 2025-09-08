@@ -40,6 +40,7 @@ USERS: dict[str, dict] = {
     "student": {"username": "student", "email": "student@test.com", "full_name": "Étudiant Démo", "password": "student123", "role": "student"},
 }
 EMAIL_INDEX: dict[str, str] = {"admin@proctoflex.ai": "admin", "student@test.com": "student"}
+FACE_INDEX: dict[str, str] = {}
 
 # Route de santé
 @app.get("/health")
@@ -150,6 +151,39 @@ async def login(credentials: dict):
 
     raise HTTPException(status_code=401, detail="Identifiants invalides")
 
+# Login avec visage (simulation)
+@app.post("/api/v1/auth/login-with-face")
+async def login_with_face(payload: dict):
+    """
+    Authentification par visage (simulée):
+    - Si `face_image_base64` correspond à une empreinte déjà enregistrée, on connecte l'utilisateur.
+    - Sinon, 401.
+    """
+    face_image_base64 = payload.get("face_image_base64")
+    if not face_image_base64:
+        raise HTTPException(status_code=400, detail="face_image_base64 requis")
+
+    username = FACE_INDEX.get(face_image_base64)
+    if not username:
+        raise HTTPException(status_code=401, detail="Visage non reconnu (simulation)")
+
+    user = USERS.get(username)
+    if not user:
+        raise HTTPException(status_code=401, detail="Utilisateur introuvable")
+
+    token = f"fake_token_{user['username']}_123"
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {
+            "id": 999 if user["username"] not in ("admin", "student") else (1 if user["username"]=="admin" else 2),
+            "username": user["username"],
+            "email": user["email"],
+            "full_name": user.get("full_name", user["username"]),
+            "role": user.get("role", "student"),
+        }
+    }
+
 # Inscription (simulée) avec vérification faciale optionnelle
 @app.post("/api/v1/auth/register-with-face")
 async def register_with_face(payload: dict):
@@ -180,6 +214,8 @@ async def register_with_face(payload: dict):
         "role": role,
     }
     EMAIL_INDEX[email] = username
+    if face_image_base64:
+        FACE_INDEX[face_image_base64] = username
 
     # Retour d'un token factice
     return {
