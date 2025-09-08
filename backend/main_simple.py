@@ -163,11 +163,24 @@ async def login_with_face(payload: dict):
     if not face_image_base64:
         raise HTTPException(status_code=400, detail="face_image_base64 requis")
 
-    username = FACE_INDEX.get(face_image_base64)
-    if not username:
-        raise HTTPException(status_code=401, detail="Visage non reconnu (simulation)")
+    # Si identifiant fourni (email ou username), accepter si l'utilisateur existe (simulation tolérante)
+    identifier = payload.get("username") or payload.get("email")
+    user = None
+    if identifier:
+        user = USERS.get(identifier)
+        if not user:
+            key = EMAIL_INDEX.get(identifier)
+            if key:
+                user = USERS.get(key)
 
-    user = USERS.get(username)
+    # Sinon, tenter par empreinte exacte (simulation stricte)
+    if not user:
+        username = FACE_INDEX.get(face_image_base64)
+        if username:
+            user = USERS.get(username)
+
+    if not user:
+        raise HTTPException(status_code=401, detail="Visage non reconnu (simulation)")
     if not user:
         raise HTTPException(status_code=401, detail="Utilisateur introuvable")
 
