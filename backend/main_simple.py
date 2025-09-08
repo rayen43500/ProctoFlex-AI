@@ -33,6 +33,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Stockage en mémoire (simulation)
+USERS: dict[str, dict] = {
+    # Utilisateurs de démo
+    "admin": {"username": "admin", "email": "admin@proctoflex.ai", "full_name": "Administrateur", "password": "admin123", "role": "admin"},
+    "student": {"username": "student", "email": "student@test.com", "full_name": "Étudiant Démo", "password": "student123", "role": "student"},
+}
+EMAIL_INDEX: dict[str, str] = {"admin@proctoflex.ai": "admin", "student@test.com": "student"}
+
 # Route de santé
 @app.get("/health")
 async def health_check():
@@ -115,34 +123,76 @@ async def get_sessions():
 @app.post("/api/v1/auth/login")
 async def login(credentials: dict):
     """Authentification (simulée)"""
-    username = credentials.get("username", "")
+    username_or_email = credentials.get("username", "")
     password = credentials.get("password", "")
-    
-    # Simulation d'authentification
-    if username == "admin" and password == "admin123":
+
+    # Chercher par username direct
+    user = USERS.get(username_or_email)
+    # Ou par email
+    if not user:
+        key = EMAIL_INDEX.get(username_or_email)
+        if key:
+            user = USERS.get(key)
+
+    if user and user.get("password") == password:
+        token = f"fake_token_{user['username']}_123"
         return {
-            "access_token": "fake_token_admin_123",
+            "access_token": token,
             "token_type": "bearer",
             "user": {
-                "id": 1,
-                "username": "admin",
-                "email": "admin@proctoflex.ai",
-                "role": "admin"
+                "id": 999 if user["username"] not in ("admin", "student") else (1 if user["username"]=="admin" else 2),
+                "username": user["username"],
+                "email": user["email"],
+                "full_name": user.get("full_name", user["username"]),
+                "role": user.get("role", "student"),
             }
         }
-    elif username == "student" and password == "student123":
-        return {
-            "access_token": "fake_token_student_123",
-            "token_type": "bearer",
-            "user": {
-                "id": 2,
-                "username": "student",
-                "email": "student@test.com",
-                "role": "student"
-            }
+
+    raise HTTPException(status_code=401, detail="Identifiants invalides")
+
+# Inscription (simulée) avec vérification faciale optionnelle
+@app.post("/api/v1/auth/register-with-face")
+async def register_with_face(payload: dict):
+    """
+    Crée un compte utilisateur (simulation). Si `face_image_base64` est fourni,
+    on simule la détection d'un visage et on accepte.
+    """
+    email = payload.get("email")
+    username = payload.get("username")
+    full_name = payload.get("full_name")
+    password = payload.get("password")
+    role = payload.get("role", "student")
+    face_image_base64 = payload.get("face_image_base64")
+
+    if not email or not username or not full_name or not password:
+        raise HTTPException(status_code=400, detail="Champs requis manquants")
+
+    # Simulation: si image présente, on considère qu'un visage est détecté
+    if face_image_base64 is not None and len(str(face_image_base64)) < 10:
+        raise HTTPException(status_code=400, detail="Aucun visage détecté (simulation)")
+
+    # Sauvegarde en mémoire (simulation)
+    USERS[username] = {
+        "username": username,
+        "email": email,
+        "full_name": full_name,
+        "password": password,
+        "role": role,
+    }
+    EMAIL_INDEX[email] = username
+
+    # Retour d'un token factice
+    return {
+        "access_token": "fake_token_registered_123",
+        "token_type": "bearer",
+        "user": {
+            "id": 999,
+            "username": username,
+            "email": email,
+            "full_name": full_name,
+            "role": role
         }
-    else:
-        raise HTTPException(status_code=401, detail="Identifiants invalides")
+    }
 
 # Routes de surveillance (simulées)
 @app.post("/api/v1/surveillance/sessions/{session_id}/start")
