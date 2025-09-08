@@ -27,5 +27,92 @@
       ],
       "purpose": "identity_verification"
     }
+  },
+  {
+    "timestamp": "2025-09-07T13:44:06.370359",
+    "event_type": "consent_recorded",
+    "student_id": "test_student",
+    "details": {
+      "consent_id": "6ef2646d-29a5-4df8-bbeb-dad4116efb04",
+      "consent_given": true,
+      "data_categories": [
+        "identification",
+        "biometric"
+      ],
+      "purposes": [
+        "identity_verification",
+        "exam_surveillance"
+      ]
+    }
+  },
+  {
+    "timestamp": "2025-09-07T13:44:06.421850",
+    "event_type": "data_processing_recorded",
+    "student_id": "test_student",
+    "details": {
+      "processing_id": "9cc198f1-b678-4710-a600-a7d344e7137c",
+      "data_categories": [
+        "biometric"
+      ],
+      "purpose": "identity_verification"
+    }
+  },
+  {
+    "timestamp": "2025-09-07T13:45:27.096938",
+    "event_type": "consent_recorded",
+    "student_id": "test_student",
+    "details": {
+      "consent_id": "5fa92575-3c85-46c5-ba70-0903eb87994f",
+      "consent_given": true,
+      "data_categories": [
+        "identification",
+        "biometric"
+      ],
+      "purposes": [
+        "identity_verification",
+        "exam_surveillance"
+      ]
+    }
+  },
+  {
+    "timestamp": "2025-09-07T13:45:27.210449",
+    "event_type": "data_processing_recorded",
+    "student_id": "test_student",
+    "details": {
+      "processing_id": "39674915-5326-4c80-9914-c39ac8f60fd3",
+      "data_categories": [
+        "biometric"
+      ],
+      "purpose": "identity_verification"
+    }
+  },
+  {
+    "timestamp": "2025-09-08T15:29:25.665974",
+    "event_type": "consent_recorded",
+    "student_id": "test_student",
+    "details": {
+      "consent_id": "5098bcb3-aa19-4207-ac0a-e2af2ae99305",
+      "consent_given": true,
+      "data_categories": [
+        "identification",
+        "biometric"
+      ],
+      "purposes": [
+        "identity_verification",
+        "exam_surveillance"
+      ]
+    }
+  },
+  {
+    "timestamp": "2025-09-08T15:29:25.710868",
+    "event_type": "data_processing_recorded",
+    "student_id": "test_student",
+    "details": {
+      "processing_id": "81d1e0a8-8909-490d-8f92-6f8ddb2d674f",
+      "data_categories": [
+        "biometric"
+      ],
+      "purpose": "identity_verification"
+    }
   }
 ]

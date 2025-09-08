@@ -8,7 +8,7 @@ try:
     import numpy as np
     import mediapipe as mp
     AI_AVAILABLE = True
-except ImportError as e:
+except Exception as e:
     print(f"Warning: AI dependencies not available: {e}")
     AI_AVAILABLE = False
     # Créer des objets factices pour éviter les erreurs
@@ -383,7 +383,7 @@ class RealTimeAIMonitoringService:
                 logger.error(f"❌ Erreur dans la boucle métriques: {e}")
                 await asyncio.sleep(5)
     
-    async def _analyze_face(self, image: np.ndarray) -> FaceAnalysis:
+    async def _analyze_face(self, image) -> FaceAnalysis:
         """Analyse faciale avancée"""
         try:
             # Convertir BGR vers RGB
@@ -447,7 +447,7 @@ class RealTimeAIMonitoringService:
                 bounding_box=(0, 0, 0, 0)
             )
     
-    async def _analyze_gaze(self, image: np.ndarray) -> GazeAnalysis:
+    async def _analyze_gaze(self, image) -> GazeAnalysis:
         """Analyse du regard"""
         try:
             # Convertir BGR vers RGB
@@ -497,7 +497,7 @@ class RealTimeAIMonitoringService:
                 eye_landmarks=[]
             )
     
-    async def _analyze_audio(self, audio_array: np.ndarray) -> AudioAnalysis:
+    async def _analyze_audio(self, audio_array) -> AudioAnalysis:
         """Analyse audio"""
         try:
             # Détection de voix (simulation)
@@ -742,7 +742,7 @@ class RealTimeAIMonitoringService:
         
         return alert
     
-    def _calculate_face_quality(self, face_roi: np.ndarray) -> float:
+    def _calculate_face_quality(self, face_roi) -> float:
         """Calcule la qualité d'un visage"""
         try:
             if face_roi.size == 0:
@@ -878,7 +878,7 @@ class RealTimeAIMonitoringService:
             logger.error(f"❌ Erreur lors de l'extraction des landmarks: {e}")
             return []
     
-    def _detect_voice(self, audio_array: np.ndarray) -> bool:
+    def _detect_voice(self, audio_array) -> bool:
         """Détecte la présence de voix"""
         try:
             # En production, utiliser des algorithmes de détection de voix
@@ -890,7 +890,7 @@ class RealTimeAIMonitoringService:
             logger.error(f"❌ Erreur lors de la détection de voix: {e}")
             return False
     
-    def _calculate_noise_level(self, audio_array: np.ndarray) -> float:
+    def _calculate_noise_level(self, audio_array) -> float:
         """Calcule le niveau de bruit"""
         try:
             # Calculer le RMS (Root Mean Square)
@@ -901,7 +901,7 @@ class RealTimeAIMonitoringService:
             logger.error(f"❌ Erreur lors du calcul du bruit: {e}")
             return 0.0
     
-    def _analyze_frequencies(self, audio_array: np.ndarray) -> Dict[str, float]:
+    def _analyze_frequencies(self, audio_array) -> Dict[str, float]:
         """Analyse les fréquences audio"""
         try:
             # En production, utiliser FFT
@@ -935,7 +935,7 @@ class RealTimeAIMonitoringService:
             logger.error(f"❌ Erreur lors de l'extraction des landmarks: {e}")
             return []
     
-    def _decode_base64_image(self, image_data: str) -> Optional[np.ndarray]:
+    def _decode_base64_image(self, image_data: str):
         """Décode une image base64"""
         try:
             if ',' in image_data:
@@ -953,7 +953,7 @@ class RealTimeAIMonitoringService:
             logger.error(f"❌ Erreur lors du décodage de l'image: {e}")
             return None
     
-    def _decode_base64_audio(self, audio_data: str) -> Optional[np.ndarray]:
+    def _decode_base64_audio(self, audio_data: str):
         """Décode des données audio base64"""
         try:
             if ',' in audio_data:

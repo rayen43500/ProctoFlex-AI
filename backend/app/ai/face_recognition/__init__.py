@@ -9,7 +9,7 @@ try:
     import numpy as np
     import face_recognition
     AI_AVAILABLE = True
-except ImportError as e:
+except Exception as e:
     print(f"Warning: AI dependencies not available: {e}")
     AI_AVAILABLE = False
     cv2 = None

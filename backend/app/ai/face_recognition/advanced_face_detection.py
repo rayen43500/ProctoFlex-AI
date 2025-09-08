@@ -8,7 +8,7 @@ try:
     import numpy as np
     import mediapipe as mp
     AI_AVAILABLE = True
-except ImportError as e:
+except Exception as e:
     print(f"Warning: AI dependencies not available: {e}")
     AI_AVAILABLE = False
     # Créer des objets factices pour éviter les erreurs

@@ -18,5 +18,65 @@
     "consent_text": "J'accepte le traitement de mes données personnelles",
     "ip_address": "",
     "user_agent": ""
+  },
+  {
+    "id": "6ef2646d-29a5-4df8-bbeb-dad4116efb04",
+    "student_id": "test_student",
+    "data_categories": [
+      "DataCategory.IDENTIFICATION",
+      "DataCategory.BIOMETRIC"
+    ],
+    "processing_purposes": [
+      "ProcessingPurpose.IDENTITY_VERIFICATION",
+      "ProcessingPurpose.EXAM_SURVEILLANCE"
+    ],
+    "legal_basis": "LegalBasis.CONSENT",
+    "consent_given": true,
+    "consent_date": "2025-09-07 13:44:06.360916",
+    "consent_method": "explicit",
+    "withdrawal_date": null,
+    "consent_text": "J'accepte le traitement de mes données personnelles",
+    "ip_address": "",
+    "user_agent": ""
+  },
+  {
+    "id": "5fa92575-3c85-46c5-ba70-0903eb87994f",
+    "student_id": "test_student",
+    "data_categories": [
+      "DataCategory.IDENTIFICATION",
+      "DataCategory.BIOMETRIC"
+    ],
+    "processing_purposes": [
+      "ProcessingPurpose.IDENTITY_VERIFICATION",
+      "ProcessingPurpose.EXAM_SURVEILLANCE"
+    ],
+    "legal_basis": "LegalBasis.CONSENT",
+    "consent_given": true,
+    "consent_date": "2025-09-07 13:45:27.089396",
+    "consent_method": "explicit",
+    "withdrawal_date": null,
+    "consent_text": "J'accepte le traitement de mes données personnelles",
+    "ip_address": "",
+    "user_agent": ""
+  },
+  {
+    "id": "5098bcb3-aa19-4207-ac0a-e2af2ae99305",
+    "student_id": "test_student",
+    "data_categories": [
+      "DataCategory.IDENTIFICATION",
+      "DataCategory.BIOMETRIC"
+    ],
+    "processing_purposes": [
+      "ProcessingPurpose.IDENTITY_VERIFICATION",
+      "ProcessingPurpose.EXAM_SURVEILLANCE"
+    ],
+    "legal_basis": "LegalBasis.CONSENT",
+    "consent_given": true,
+    "consent_date": "2025-09-08 15:29:25.657938",
+    "consent_method": "explicit",
+    "withdrawal_date": null,
+    "consent_text": "J'accepte le traitement de mes données personnelles",
+    "ip_address": "",
+    "user_agent": ""
   }
 ]

@@ -20,5 +20,71 @@
       "Sauvegarde sécurisée",
       "Suppression sécurisée"
     ]
+  },
+  {
+    "id": "9cc198f1-b678-4710-a600-a7d344e7137c",
+    "student_id": "test_student",
+    "data_categories": [
+      "DataCategory.BIOMETRIC"
+    ],
+    "processing_purpose": "ProcessingPurpose.IDENTITY_VERIFICATION",
+    "legal_basis": "LegalBasis.CONSENT",
+    "processing_date": "2025-09-07 13:44:06.414800",
+    "data_controller": "Université de Monastir - ESPRIM",
+    "data_processor": "ProctoFlex AI System",
+    "retention_until": "2025-12-06 13:44:06.413430",
+    "location": "EU",
+    "security_measures": [
+      "Chiffrement des données au repos",
+      "Chiffrement des données en transit",
+      "Contrôle d'accès basé sur les rôles",
+      "Audit des accès",
+      "Sauvegarde sécurisée",
+      "Suppression sécurisée"
+    ]
+  },
+  {
+    "id": "39674915-5326-4c80-9914-c39ac8f60fd3",
+    "student_id": "test_student",
+    "data_categories": [
+      "DataCategory.BIOMETRIC"
+    ],
+    "processing_purpose": "ProcessingPurpose.IDENTITY_VERIFICATION",
+    "legal_basis": "LegalBasis.CONSENT",
+    "processing_date": "2025-09-07 13:45:27.202059",
+    "data_controller": "Université de Monastir - ESPRIM",
+    "data_processor": "ProctoFlex AI System",
+    "retention_until": "2025-12-06 13:45:27.201907",
+    "location": "EU",
+    "security_measures": [
+      "Chiffrement des données au repos",
+      "Chiffrement des données en transit",
+      "Contrôle d'accès basé sur les rôles",
+      "Audit des accès",
+      "Sauvegarde sécurisée",
+      "Suppression sécurisée"
+    ]
+  },
+  {
+    "id": "81d1e0a8-8909-490d-8f92-6f8ddb2d674f",
+    "student_id": "test_student",
+    "data_categories": [
+      "DataCategory.BIOMETRIC"
+    ],
+    "processing_purpose": "ProcessingPurpose.IDENTITY_VERIFICATION",
+    "legal_basis": "LegalBasis.CONSENT",
+    "processing_date": "2025-09-08 15:29:25.704426",
+    "data_controller": "Université de Monastir - ESPRIM",
+    "data_processor": "ProctoFlex AI System",
+    "retention_until": "2025-12-07 15:29:25.704346",
+    "location": "EU",
+    "security_measures": [
+      "Chiffrement des données au repos",
+      "Chiffrement des données en transit",
+      "Contrôle d'accès basé sur les rôles",
+      "Audit des accès",
+      "Sauvegarde sécurisée",
+      "Suppression sécurisée"
+    ]
   }
 ]
