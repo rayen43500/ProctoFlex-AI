@@ -10,6 +10,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // Journaliser les alertes de sécurité
   logSecurityAlert: (alertData) => ipcRenderer.invoke('log-security-alert', alertData),
+
+  // S'abonner aux avertissements étudiant
+  onStudentWarning: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('student-warning', listener);
+    return () => ipcRenderer.removeListener('student-warning', listener);
+  },
   
   // Vérifier si l'API est disponible
   isAvailable: true

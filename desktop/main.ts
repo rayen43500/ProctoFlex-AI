@@ -170,12 +170,19 @@ ipcMain.handle('log-security-alert', async (event: any, alertData: any) => {
 
 // --- Process Monitor (polling) ---
 let monitorInterval: NodeJS.Timeout | null = null;
+let lastLockConfig: any = {
+  allowed_apps: ["code.exe","excel.exe","python.exe"],
+  forbidden_apps: ["discord.exe","whatsapp.exe","teams.exe","chrome.exe"],
+  policy: { auto_kill: false, repeat_threshold: 2 }
+};
 
 async function fetchLockConfig() {
   try {
     const res = await fetch('http://localhost:8000/api/v1/config/lock');
     if (!res.ok) return null;
-    return await res.json();
+    const json = await res.json();
+    lastLockConfig = json || lastLockConfig;
+    return json;
   } catch (e) {
     console.error('Erreur fetch lock config:', e);
     return null;
@@ -185,12 +192,24 @@ async function fetchLockConfig() {
 async function listProcessesLower(): Promise<string> {
   try {
     if (process.platform === 'win32') {
-      const { stdout } = await execAsync('tasklist | findstr /V /B "Image Name"');
-      return stdout.toLowerCase();
+      // Format CSV for parsing stable process names
+      const { stdout } = await execAsync('tasklist /FO CSV /NH');
+      // stdout lines like: "chrome.exe","1234","Console","1","120,000 K"
+      const names = stdout
+        .split(/\r?\n/)
+        .map(l => l.trim())
+        .filter(l => l.length > 0)
+        .map(l => {
+          const m = l.match(/^"([^"]+)"/);
+          return m ? m[1].toLowerCase() : '';
+        })
+        .filter(Boolean);
+      return names.join('\n');
     }
     const { stdout } = await execAsync('ps -A -o comm');
     return stdout.toLowerCase();
   } catch (e) {
+    console.error('Erreur listProcessesLower:', e);
     return '';
   }
 }
@@ -207,6 +226,9 @@ async function sendAlert(alert: any) {
   }
 }
 
+// Compteurs pour appliquer repeat_threshold avant kill
+const forbiddenCounters: Record<string, number> = {};
+
 async function killProcessWindows(procNameLower: string) {
   try {
     await execAsync(`taskkill /IM ${procNameLower} /F`);
@@ -215,22 +237,28 @@ async function killProcessWindows(procNameLower: string) {
 
 async function tickProcessMonitor(mainWindow: Electron.BrowserWindow | null) {
   const cfg = await fetchLockConfig();
-  if (!cfg) return;
-  const allowed: string[] = (cfg.allowed_apps || []).map((s: string) => s.toLowerCase());
-  const forbidden: string[] = (cfg.forbidden_apps || []).map((s: string) => s.toLowerCase());
-  const autoKill: boolean = !!(cfg.policy && cfg.policy.auto_kill);
+  const effective = cfg || lastLockConfig;
+  const allowed: string[] = (effective.allowed_apps || []).map((s: string) => s.toLowerCase());
+  const forbidden: string[] = (effective.forbidden_apps || []).map((s: string) => s.toLowerCase());
+  const autoKill: boolean = !!(effective.policy && effective.policy.auto_kill);
+  const repeatThreshold: number = Math.max(1, Number(effective.policy?.repeat_threshold || 2));
 
   const procs = await listProcessesLower();
   if (!procs) return;
 
   for (const forb of forbidden) {
     if (forb && procs.includes(forb)) {
+      console.log('[Monitor] Application interdite détectée:', forb);
       await sendAlert({ type: 'forbidden_app', process: forb });
       if (mainWindow) {
         mainWindow.webContents.send('student-warning', { message: `⚠️ L'application "${forb}" est interdite pendant l'examen.` });
       }
       if (autoKill && process.platform === 'win32') {
-        await killProcessWindows(forb);
+        forbiddenCounters[forb] = (forbiddenCounters[forb] || 0) + 1;
+        if (forbiddenCounters[forb] >= repeatThreshold) {
+          await killProcessWindows(forb);
+          forbiddenCounters[forb] = 0;
+        }
       }
     }
   }

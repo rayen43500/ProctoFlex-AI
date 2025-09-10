@@ -424,7 +424,7 @@ async def exams_delete(exam_id: str):
 # --- Configuration de verrouillage (apps autorisées/interdites, domaines, politique) ---
 LOCK_CONFIG = {
     "allowed_apps": ["code.exe", "excel.exe", "python.exe"],
-    "forbidden_apps": ["discord.exe", "whatsapp.exe", "teams.exe"],
+    "forbidden_apps": ["discord.exe", "whatsapp.exe", "teams.exe", "chrome.exe", "msedge.exe", "firefox.exe"],
     "allowed_domains": ["proctoflex.ai", "docs.python.org"],
     "policy": {
         "auto_kill": False,
