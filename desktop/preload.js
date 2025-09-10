@@ -11,6 +11,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Journaliser les alertes de sécurité
   logSecurityAlert: (alertData) => ipcRenderer.invoke('log-security-alert', alertData),
 
+  // Définir l'identité de l'étudiant (pour associer les alertes)
+  setStudentIdentity: (identity) => ipcRenderer.invoke('set-student-identity', identity),
+
   // S'abonner aux avertissements étudiant
   onStudentWarning: (callback) => {
     const listener = (_event, payload) => callback(payload);

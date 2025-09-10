@@ -214,6 +214,20 @@ async function listProcessesLower(): Promise<string> {
   }
 }
 
+// Renvoie un Set des noms de processus (lowercase)
+async function listProcessNamesSet(): Promise<Set<string>> {
+  const set = new Set<string>();
+  const raw = await listProcessesLower();
+  if (!raw) return set;
+  for (const line of raw.split('\n')) {
+    const name = line.trim();
+    if (!name) continue;
+    const base = name.includes('/') ? (name.split('/').pop() || name) : name;
+    set.add(base.toLowerCase());
+  }
+  return set;
+}
+
 async function sendAlert(alert: any) {
   try {
     await fetch('http://localhost:8000/api/v1/alerts', {
@@ -228,6 +242,7 @@ async function sendAlert(alert: any) {
 
 // Compteurs pour appliquer repeat_threshold avant kill
 const forbiddenCounters: Record<string, number> = {};
+const lastNotifyAt: Record<string, number> = {};
 
 async function killProcessWindows(procNameLower: string) {
   try {
@@ -243,15 +258,19 @@ async function tickProcessMonitor(mainWindow: Electron.BrowserWindow | null) {
   const autoKill: boolean = !!(effective.policy && effective.policy.auto_kill);
   const repeatThreshold: number = Math.max(1, Number(effective.policy?.repeat_threshold || 2));
 
-  const procs = await listProcessesLower();
-  if (!procs) return;
+  const procSet = await listProcessNamesSet();
+  if (!procSet.size) return;
 
   for (const forb of forbidden) {
-    if (forb && procs.includes(forb)) {
+    if (forb && procSet.has(forb)) {
       console.log('[Monitor] Application interdite détectée:', forb);
       await sendAlert({ type: 'forbidden_app', process: forb });
-      if (mainWindow) {
-        mainWindow.webContents.send('student-warning', { message: `⚠️ L'application "${forb}" est interdite pendant l'examen.` });
+      const now = Date.now();
+      if (!lastNotifyAt[forb] || now - lastNotifyAt[forb] > 10000) {
+        lastNotifyAt[forb] = now;
+        if (mainWindow) {
+          mainWindow.webContents.send('student-warning', { app: forb, message: `⚠️ L'application "${forb}" est interdite pendant l'examen.` });
+        }
       }
       if (autoKill && process.platform === 'win32') {
         forbiddenCounters[forb] = (forbiddenCounters[forb] || 0) + 1;
