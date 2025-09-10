@@ -10,12 +10,25 @@ type Exam = {
   status: string;
   instructions?: string;
   created_at?: string;
+  pdf_filename?: string | null;
 };
 
 const Exams: React.FC = () => {
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Form state
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<Exam | null>(null);
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [duration, setDuration] = useState<number>(60);
+  const [status, setStatus] = useState<'draft' | 'scheduled' | 'active'>('draft');
+  const [instructions, setInstructions] = useState('');
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   async function load() {
     try {
@@ -60,6 +73,102 @@ const Exams: React.FC = () => {
     }
   }
 
+  function openCreate() {
+    setEditing(null);
+    setTitle('');
+    setDescription('');
+    setDuration(60);
+    setStatus('draft');
+    setInstructions('');
+    setPdfFile(null);
+    setFormError(null);
+    setShowForm(true);
+  }
+
+  function openEdit(exam: Exam) {
+    setEditing(exam);
+    setTitle(exam.title);
+    setDescription(exam.description);
+    setDuration(exam.duration_minutes);
+    setStatus((exam.status as any) || 'draft');
+    setInstructions(exam.instructions || '');
+    setPdfFile(null);
+    setFormError(null);
+    setShowForm(true);
+  }
+
+  async function uploadPdfIfAny(examId: string) {
+    if (!pdfFile) return;
+    const form = new FormData();
+    form.append('file', pdfFile);
+    await fetch(`${API_BASE}/exams/${examId}/material`, {
+      method: 'POST',
+      headers: { ...getAuthHeaders() },
+      body: form
+    });
+  }
+
+  async function submitForm(e: React.FormEvent) {
+    e.preventDefault();
+    if (!title.trim()) { setFormError('Titre requis'); return; }
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      const payload = { title, description, duration_minutes: duration, status, instructions } as any;
+      if (editing) {
+        const res = await fetch(`${API_BASE}/exams/${editing.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error('Échec de la mise à jour');
+        const updated = await res.json().catch(() => null);
+        const examId = (updated && updated.id) ? updated.id : editing.id;
+        await uploadPdfIfAny(examId);
+        if (updated && updated.id) {
+          setExams((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+        } else {
+          await load();
+        }
+      } else {
+        const res = await fetch(`${API_BASE}/exams`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error('Échec de la création');
+        const created = await res.json().catch(() => null);
+        const examId = (created && created.id) ? created.id : undefined;
+        if (examId) await uploadPdfIfAny(examId);
+        if (created && created.id) {
+          setExams((prev) => [created, ...prev]);
+        } else {
+          await load();
+        }
+      }
+      setShowForm(false);
+    } catch (err: any) {
+      setFormError(err.message || 'Erreur lors de l’enregistrement');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function deleteExam(exam: Exam) {
+    const ok = confirm(`Supprimer l'examen "${exam.title}" ?`);
+    if (!ok) return;
+    try {
+      const res = await fetch(`${API_BASE}/exams/${exam.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
+      });
+      if (!res.ok) throw new Error('Échec de la suppression');
+      setExams((prev) => prev.filter((e) => e.id !== exam.id));
+    } catch (err: any) {
+      alert(err.message || 'Erreur lors de la suppression');
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -68,7 +177,7 @@ const Exams: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">Gestion des Examens</h1>
           <p className="text-gray-600">Créez et gérez vos examens</p>
         </div>
-        <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center">
+        <button onClick={openCreate} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center">
           <Plus className="h-4 w-4 mr-2" />
           Nouvel Examen
         </button>
@@ -76,6 +185,56 @@ const Exams: React.FC = () => {
 
       {loading && <div className="bg-white p-4 rounded shadow">Chargement...</div>}
       {error && <div className="bg-red-50 text-red-700 p-4 rounded shadow">{error}</div>}
+
+      {/* Formulaire */}
+      {showForm && (
+        <div className="bg-white shadow rounded-lg">
+          <div className="px-4 py-5 sm:p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">{editing ? 'Modifier un examen' : 'Créer un examen'}</h3>
+            <form className="grid gap-4" onSubmit={submitForm}>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Titre</label>
+                <input className="mt-1 w-full border rounded px-3 py-2" value={title} onChange={(e) => setTitle(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Description</label>
+                <textarea className="mt-1 w-full border rounded px-3 py-2" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Durée (minutes)</label>
+                  <input type="number" min={10} className="mt-1 w-full border rounded px-3 py-2" value={duration} onChange={(e) => setDuration(Number(e.target.value))} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Statut</label>
+                  <select className="mt-1 w-full border rounded px-3 py-2" value={status} onChange={(e) => setStatus(e.target.value as any)}>
+                    <option value="draft">Brouillon</option>
+                    <option value="scheduled">Programmé</option>
+                    <option value="active">Actif</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Instructions</label>
+                  <input className="mt-1 w-full border rounded px-3 py-2" value={instructions} onChange={(e) => setInstructions(e.target.value)} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Document PDF (optionnel)</label>
+                <input type="file" accept="application/pdf" onChange={(e) => setPdfFile(e.target.files?.[0] || null)} />
+              </div>
+
+              {formError && <div className="bg-red-50 text-red-700 p-2 rounded text-sm">{formError}</div>}
+
+              <div className="flex gap-2">
+                <button disabled={submitting} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50">
+                  {submitting ? 'Enregistrement...' : 'Enregistrer'}
+                </button>
+                <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 rounded border">Annuler</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Exams Table */}
       {!loading && !error && (
@@ -108,9 +267,11 @@ const Exams: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex space-x-2">
-                          <button className="text-blue-600 hover:text-blue-900"><Eye className="h-4 w-4" /></button>
-                          <button className="text-indigo-600 hover:text-indigo-900"><Edit className="h-4 w-4" /></button>
-                          <button className="text-red-600 hover:text-red-900"><Trash2 className="h-4 w-4" /></button>
+                          {exam.pdf_filename && (
+                            <a href={`${API_BASE}/exams/${exam.id}/material`} target="_blank" rel="noreferrer" className="text-blue-600 hover:text-blue-900" title="PDF">PDF</a>
+                          )}
+                          <button onClick={() => openEdit(exam)} className="text-indigo-600 hover:text-indigo-900" title="Modifier"><Edit className="h-4 w-4" /></button>
+                          <button onClick={() => deleteExam(exam)} className="text-red-600 hover:text-red-900" title="Supprimer"><Trash2 className="h-4 w-4" /></button>
                         </div>
                       </td>
                     </tr>

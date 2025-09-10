@@ -375,27 +375,110 @@ async def record_consent(payload: dict):
 ALERTS: list[dict] = []
 
 @app.get("/api/v1/alerts")
-async def list_alerts():
+async def list_alerts(student: str | None = None):
+    if student:
+        return [a for a in ALERTS if str(a.get("student", "")).lower() == student.lower()][-500:]
     return ALERTS[-500:]
 
 @app.post("/api/v1/alerts")
 async def push_alert(alert: dict):
+    # Normaliser le champ étudiant
+    student = alert.get("student")
+    if isinstance(student, dict):
+        # Garder info minimale
+        alert["student"] = student.get("email") or student.get("username") or student.get("id")
     ALERTS.append(alert)
     return {"success": True}
 
 # --- Examens CRUD (simulé) ---
 from uuid import uuid4
-EXAMS: dict[str, dict] = {
-    "1": {"id": "1", "title": "Examen de Programmation", "description": "Concepts de programmation", "duration_minutes": 120, "status": "active", "instructions": "Aucune ressource externe", "created_at": "2025-01-15T10:00:00Z"}
-}
+from fastapi import UploadFile, File
+from fastapi.responses import FileResponse
+import os
+
+# --- Persistence PostgreSQL pour Examens (SQLAlchemy) ---
+import os as _os
+from sqlalchemy import create_engine, Column, String, Integer, Text
+from sqlalchemy.orm import declarative_base, sessionmaker
+
+DATABASE_URL = _os.getenv("DATABASE_URL", "postgresql://root:root@localhost:5432/proctoflex")
+try:
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    BaseDB = declarative_base()
+    DB_OK = True
+except Exception as _e:
+    print(f"[main_simple] Warning: DB init failed: {_e}")
+    engine = None
+    SessionLocal = None
+    BaseDB = declarative_base()
+    DB_OK = False
+
+class ExamDB(BaseDB):
+    __tablename__ = "exams_simple"
+    id = Column(String, primary_key=True, index=True)
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    duration_minutes = Column(Integer, nullable=False, default=60)
+    status = Column(String(32), nullable=False, default="draft")
+    instructions = Column(Text, nullable=True)
+    created_at = Column(String(64), nullable=True)
+    pdf_filename = Column(String(255), nullable=True)
+
+if DB_OK:
+    try:
+        BaseDB.metadata.create_all(bind=engine)
+    except Exception as _e:
+        print(f"[main_simple] Warning: create_all failed: {_e}")
+        DB_OK = False
+EXAMS: dict[str, dict] = {}
 
 @app.get("/api/v1/exams")
 async def exams_list():
+    if DB_OK:
+        with SessionLocal() as db:
+            rows = db.query(ExamDB).all()
+            return [
+                {
+                    "id": r.id,
+                    "title": r.title,
+                    "description": r.description,
+                    "duration_minutes": r.duration_minutes,
+                    "status": r.status,
+                    "instructions": r.instructions,
+                    "created_at": r.created_at,
+                    "pdf_filename": r.pdf_filename,
+                } for r in rows
+            ]
     return list(EXAMS.values())
 
 @app.post("/api/v1/exams")
 async def exams_create(payload: dict):
     new_id = str(uuid4())[:8]
+    if DB_OK:
+        with SessionLocal() as db:
+            row = ExamDB(
+                id=new_id,
+                title=payload.get("title", "Examen"),
+                description=payload.get("description", ""),
+                duration_minutes=int(payload.get("duration_minutes", 60)),
+                status=payload.get("status", "draft"),
+                instructions=payload.get("instructions", ""),
+                created_at=payload.get("created_at", "2025-01-15T10:00:00Z"),
+                pdf_filename=None,
+            )
+            db.add(row)
+            db.commit()
+            return {
+                "id": row.id,
+                "title": row.title,
+                "description": row.description,
+                "duration_minutes": row.duration_minutes,
+                "status": row.status,
+                "instructions": row.instructions,
+                "created_at": row.created_at,
+                "pdf_filename": row.pdf_filename,
+            }
     exam = {
         "id": new_id,
         "title": payload.get("title", "Examen"),
@@ -404,12 +487,33 @@ async def exams_create(payload: dict):
         "status": payload.get("status", "draft"),
         "instructions": payload.get("instructions", ""),
         "created_at": payload.get("created_at", "2025-01-15T10:00:00Z"),
+        "pdf_filename": None,
     }
     EXAMS[new_id] = exam
     return exam
 
 @app.put("/api/v1/exams/{exam_id}")
 async def exams_update(exam_id: str, payload: dict):
+    if DB_OK:
+        with SessionLocal() as db:
+            row = db.query(ExamDB).get(exam_id)
+            if not row:
+                raise HTTPException(status_code=404, detail="Examen introuvable")
+            for k, v in payload.items():
+                if hasattr(row, k):
+                    setattr(row, k, v)
+            db.commit()
+            db.refresh(row)
+            return {
+                "id": row.id,
+                "title": row.title,
+                "description": row.description,
+                "duration_minutes": row.duration_minutes,
+                "status": row.status,
+                "instructions": row.instructions,
+                "created_at": row.created_at,
+                "pdf_filename": row.pdf_filename,
+            }
     if exam_id not in EXAMS:
         raise HTTPException(status_code=404, detail="Examen introuvable")
     EXAMS[exam_id].update({k: v for k, v in payload.items() if k in EXAMS[exam_id]})
@@ -417,9 +521,61 @@ async def exams_update(exam_id: str, payload: dict):
 
 @app.delete("/api/v1/exams/{exam_id}")
 async def exams_delete(exam_id: str):
-    if exam_id in EXAMS:
-        EXAMS.pop(exam_id)
+    if DB_OK:
+        with SessionLocal() as db:
+            row = db.query(ExamDB).get(exam_id)
+            if row:
+                db.delete(row)
+                db.commit()
+    else:
+        if exam_id in EXAMS:
+            EXAMS.pop(exam_id)
     return {"success": True}
+
+# --- Ressources d'examen (PDF) ---
+UPLOAD_DIR = os.path.join(os.getcwd(), "uploads", "exams")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+@app.post("/api/v1/exams/{exam_id}/material")
+async def upload_exam_material(exam_id: str, file: UploadFile = File(...)):
+    if DB_OK:
+        with SessionLocal() as db:
+            row = db.query(ExamDB).get(exam_id)
+            if not row:
+                raise HTTPException(status_code=404, detail="Examen introuvable")
+    # Sauvegarde du PDF
+    filename = f"{exam_id}.pdf"
+    dest = os.path.join(UPLOAD_DIR, filename)
+    content = await file.read()
+    with open(dest, "wb") as f:
+        f.write(content)
+    if DB_OK:
+        row.pdf_filename = filename
+        db.commit()
+    else:
+        if exam_id not in EXAMS:
+            raise HTTPException(status_code=404, detail="Examen introuvable")
+        EXAMS[exam_id]["pdf_filename"] = filename
+    return {"success": True, "filename": filename}
+
+@app.get("/api/v1/exams/{exam_id}/material")
+async def get_exam_material(exam_id: str):
+    filename = None
+    if DB_OK:
+        with SessionLocal() as db:
+            row = db.query(ExamDB).get(exam_id)
+            if not row or not row.pdf_filename:
+                raise HTTPException(status_code=404, detail="Aucun document")
+            filename = row.pdf_filename
+    else:
+        exam = EXAMS.get(exam_id)
+        if not exam or not exam.get("pdf_filename"):
+            raise HTTPException(status_code=404, detail="Aucun document")
+        filename = exam["pdf_filename"]
+    path = os.path.join(UPLOAD_DIR, filename)
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Fichier introuvable")
+    return FileResponse(path, media_type="application/pdf", filename=filename)
 
 # --- Configuration de verrouillage (apps autorisées/interdites, domaines, politique) ---
 LOCK_CONFIG = {

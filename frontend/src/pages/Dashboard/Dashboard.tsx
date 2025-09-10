@@ -17,11 +17,13 @@ interface AlertItem {
   message?: string;
   severity?: 'low' | 'medium' | 'high' | 'critical' | string;
   timestamp?: string;
+  student?: string;
 }
 
 const Dashboard: React.FC = () => {
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [isLoadingAlerts, setIsLoadingAlerts] = useState(false);
+  const [studentFilter, setStudentFilter] = useState('');
 
   const stats = [
     {
@@ -61,13 +63,14 @@ const Dashboard: React.FC = () => {
     async function loadAlerts() {
       try {
         setIsLoadingAlerts(true);
-        const res = await fetch(`${API_BASE}/alerts`, {
+        const url = new URL(`${API_BASE}/alerts`);
+        if (studentFilter.trim()) url.searchParams.set('student', studentFilter.trim());
+        const res = await fetch(url.toString(), {
           headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         });
         if (!res.ok) return;
         const data = await res.json();
         if (alive && Array.isArray(data)) {
-          // tri par timestamp desc si présent
           const sorted = data
             .slice()
             .sort((a: AlertItem, b: AlertItem) => {
@@ -87,85 +90,49 @@ const Dashboard: React.FC = () => {
     loadAlerts();
     interval = setInterval(loadAlerts, 5000);
     return () => { alive = false; clearInterval(interval); };
-  }, []);
+  }, [studentFilter]);
 
   const recentSessions = [
-    {
-      id: 1,
-      student: 'Ahmed Ben Ali',
-      exam: 'Programmation Java',
-      status: 'active',
-      duration: '1h 23m',
-      alerts: 0,
-    },
-    {
-      id: 2,
-      student: 'Fatma Mansouri',
-      exam: 'Mathématiques Avancées',
-      status: 'completed',
-      duration: '2h 15m',
-      alerts: 1,
-    },
-    {
-      id: 3,
-      student: 'Mohamed Karray',
-      exam: 'Base de Données',
-      status: 'active',
-      duration: '45m',
-      alerts: 0,
-    },
+    { id: 1, student: 'Ahmed Ben Ali', exam: 'Programmation Java', status: 'active', duration: '1h 23m', alerts: 0 },
+    { id: 2, student: 'Fatma Mansouri', exam: 'Mathématiques Avancées', status: 'completed', duration: '2h 15m', alerts: 1 },
+    { id: 3, student: 'Mohamed Karray', exam: 'Base de Données', status: 'active', duration: '45m', alerts: 0 },
   ];
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'active':
-        return <Clock className="h-4 w-4 text-blue-500" />;
-      case 'completed':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      default:
-        return <XCircle className="h-4 w-4 text-red-500" />;
+      case 'active': return <Clock className="h-4 w-4 text-blue-500" />;
+      case 'completed': return <CheckCircle className="h-4 w-4 text-green-500" />;
+      default: return <XCircle className="h-4 w-4 text-red-500" />;
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active':
-        return 'bg-blue-100 text-blue-800';
-      case 'completed':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-red-100 text-red-800';
+      case 'active': return 'bg-blue-100 text-blue-800';
+      case 'completed': return 'bg-green-100 text-green-800';
+      default: return 'bg-red-100 text-red-800';
     }
   };
 
   const severityColor = (sev?: string) => {
     switch (sev) {
-      case 'critical':
-        return 'bg-red-600';
-      case 'high':
-        return 'bg-red-500';
-      case 'medium':
-        return 'bg-yellow-500';
-      case 'low':
-        return 'bg-blue-500';
-      default:
-        return 'bg-gray-400';
+      case 'critical': return 'bg-red-600';
+      case 'high': return 'bg-red-500';
+      case 'medium': return 'bg-yellow-500';
+      case 'low': return 'bg-blue-500';
+      default: return 'bg-gray-400';
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((item) => (
           <div key={item.name} className="bg-white overflow-hidden shadow rounded-lg">
             <div className="p-5">
               <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <item.icon className="h-6 w-6 text-gray-400" />
-                </div>
+                <div className="flex-shrink-0"><item.icon className="h-6 w-6 text-gray-400" /></div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">{item.name}</dt>
@@ -178,19 +145,23 @@ const Dashboard: React.FC = () => {
         ))}
       </div>
 
+      {/* Filtre utilisateur pour timeline */}
+      <div className="bg-white rounded-lg shadow p-4">
+        <div className="flex items-center gap-3">
+          <label className="text-sm text-gray-600">Filtrer par étudiant (email/username)</label>
+          <input className="border rounded px-3 py-2" placeholder="ex: student@test.com" value={studentFilter} onChange={(e) => setStudentFilter(e.target.value)} />
+          <span className="text-xs text-gray-400">{isLoadingAlerts ? 'Mise à jour...' : ''}</span>
+        </div>
+      </div>
+
       {/* Sessions récentes (placeholder) */}
       <div className="bg-white rounded-lg shadow">
-        <div className="px-6 py-4 border-b">
-          <h3 className="text-lg font-semibold text-gray-900">Sessions Récentes</h3>
-        </div>
+        <div className="px-6 py-4 border-b"><h3 className="text-lg font-semibold text-gray-900">Sessions Récentes</h3></div>
         <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
           {recentSessions.map((s) => (
             <div key={s.id} className="border rounded p-4">
               <div className="flex items-center justify-between">
-                <div className={`inline-flex items-center px-2 py-1 rounded text-xs ${getStatusColor(s.status)}`}>
-                  {getStatusIcon(s.status)}
-                  <span className="ml-1 capitalize">{s.status}</span>
-                </div>
+                <div className={`inline-flex items-center px-2 py-1 rounded text-xs ${getStatusColor(s.status)}`}>{getStatusIcon(s.status)}<span className="ml-1 capitalize">{s.status}</span></div>
                 <div className="text-sm text-gray-500">{s.duration}</div>
               </div>
               <div className="mt-2 text-sm font-medium text-gray-900">{s.student}</div>
@@ -212,19 +183,15 @@ const Dashboard: React.FC = () => {
             <div className="text-sm text-gray-500">Aucune alerte</div>
           ) : (
             <ul className="space-y-3">
-              {alerts.slice(0, 20).map((a, idx) => (
+              {alerts.slice(0, 50).map((a, idx) => (
                 <li key={idx} className="flex items-start">
                   <span className={`mt-1 h-2 w-2 rounded-full ${severityColor(a.severity)}`}></span>
                   <div className="ml-3">
                     <div className="text-sm text-gray-900">
-                      {a.type || 'alerte'}{a.process ? ` · ${a.process}` : ''}
+                      {a.type || 'alerte'}{a.process ? ` · ${a.process}` : ''}{a.student ? ` · ${a.student}` : ''}
                     </div>
-                    <div className="text-xs text-gray-600">
-                      {a.message || 'Événement détecté'}
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      {a.timestamp ? new Date(a.timestamp).toLocaleString() : ''}
-                    </div>
+                    <div className="text-xs text-gray-600">{a.message || 'Événement détecté'}</div>
+                    <div className="text-xs text-gray-400">{a.timestamp ? new Date(a.timestamp).toLocaleString() : ''}</div>
                   </div>
                 </li>
               ))}
