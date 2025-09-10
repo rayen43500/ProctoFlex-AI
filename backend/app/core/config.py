@@ -13,8 +13,13 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     
     # Base de données
+    # Format accepté: postgresql://user:pass@host:port/db  ou  mysql+pymysql://user:pass@host:3306/db  ou  sqlite:///./local.db
     DATABASE_URL: str = "postgresql://root:root@localhost:5432/proctoflex"
-    DATABASE_TEST_URL: str = "postgresql://root:root@localhost:5432/proctoflex_test"
+    DATABASE_TEST_URL: str = "sqlite:///./test.db"  # Utilisé dans les tests automatisés
+    DB_ECHO: bool = False  # Activer SQLAlchemy echo pour debug
+
+    # Support multi SGBD : si vous souhaitez utiliser MySQL, définissez DATABASE_URL avec le driver mysql+pymysql
+    # Exemple: mysql+pymysql://user:pass@localhost:3306/proctoflex
     
     # Sécurité
     SECRET_KEY: str = "your-secret-key-change-in-production"
@@ -40,6 +45,9 @@ class Settings(BaseSettings):
     GAZE_DETECTION_ENABLED: bool = True
     AUDIO_ANALYSIS_ENABLED: bool = True
     SCREEN_ANALYSIS_ENABLED: bool = True
+    AI_ENABLE_YOLO: bool = True  # Désactiver pour éviter le chargement du modèle en environnement contraint
+    YOLO_MODEL_PATH: str = "models/yolov5s.pt"
+    YOLO_AUTO_DOWNLOAD: bool = True  # Téléchargement automatique si le fichier manque
     
     # Stockage
     UPLOAD_DIR: str = "uploads"

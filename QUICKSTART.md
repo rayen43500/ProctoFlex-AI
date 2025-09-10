@@ -1,3 +1,6 @@
+# Quickstart ProctoFlex AI
+
+## Backend
 # 🚀 ProctoFlex AI - Guide de Démarrage Rapide
 
 ## 📋 Prérequis
@@ -28,6 +31,18 @@ docker-compose ps
 - **Backend API** : http://localhost:8000
 - **Frontend Web** : http://localhost:3000
 - **Base de données** : localhost:5432
+
+### Tests rapides
+```bash
+cd backend
+pytest -q
+```
+
+### Base de données alternative
+Changer `DATABASE_URL` dans `.env` pour utiliser MySQL ou SQLite.
+
+### YOLO
+Placer `models/yolov5s.pt` ou laisser `YOLO_AUTO_DOWNLOAD=true` (voir README).
 
 ## 🔧 Démarrage Manuel (Développement)
 

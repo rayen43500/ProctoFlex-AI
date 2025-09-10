@@ -73,15 +73,19 @@ async def get_users():
             "id": 1,
             "username": "admin",
             "email": "admin@proctoflex.ai",
+            "full_name": "Administrateur",
             "role": "admin",
-            "is_active": True
+            "is_active": True,
+            "created_at": "2025-01-15T10:00:00Z",
         },
         {
             "id": 2,
             "username": "student1",
             "email": "student@test.com",
+            "full_name": "Étudiant Démo",
             "role": "student",
-            "is_active": True
+            "is_active": True,
+            "created_at": "2025-01-15T10:00:00Z",
         }
     ]
 

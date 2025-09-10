@@ -61,13 +61,69 @@ npm run dev
 └── docs/        # Documentation
 ```
 
-## 🔧 Dépannage
+## �️ Base de Données
+
+Par défaut le projet utilise PostgreSQL (voir `docker-compose.yml`). Vous pouvez changer de SGBD via la variable `DATABASE_URL` (supportés: PostgreSQL, MySQL/MariaDB via `mysql+pymysql://`, ou SQLite pour développement/test).
+
+Exemples :
+```
+DATABASE_URL=postgresql://user:pass@localhost:5432/proctoflex
+DATABASE_URL=mysql+pymysql://user:pass@localhost:3306/proctoflex
+DATABASE_URL=sqlite:///./local.db
+```
+
+Pour les tests rapides une base SQLite est utilisée (`DATABASE_TEST_URL`).
+
+## 🤖 Modèle YOLO
+
+La détection d'objets tente de charger `models/yolov5s.pt`.
+
+Variables utiles dans `.env` :
+```
+AI_ENABLE_YOLO=true
+YOLO_MODEL_PATH=models/yolov5s.pt
+YOLO_AUTO_DOWNLOAD=true
+```
+Si le fichier est absent et `YOLO_AUTO_DOWNLOAD=true`, il sera téléchargé automatiquement depuis les releases officielles. Mettre `AI_ENABLE_YOLO=false` pour désactiver et n'utiliser que le fallback OpenCV.
+
+## 🧪 Tests
+
+Des tests basiques sont disponibles dans `backend/tests/`.
+
+Exécution :
+```bash
+cd backend
+pytest -q
+```
+
+## 📄 Documentation Technique
+
+Voir :
+- `docs/architecture.md` : Architecture détaillée
+- `docs/api.md` : Spécification endpoints
+- `backend/app/compliance/gdpr_service.py` : Implémentation RGPD
+
+## ✅ Qualité & Roadmap
+
+Améliorations futures :
+- Ajout de tests pour endpoints critiques (auth, surveillance)
+- Intégration CI (GitHub Actions) pour lint + tests
+- Téléchargement optionnel modèles IA lourds (poids configurables)
+
+## �🔧 Dépannage
 
 **Erreur de dépendances** : Relancer `npm install` ou `python install_simple.py`
 
 **Port occupé** : Vérifier qu'aucun autre service n'utilise les ports 8000/3000
 
 **Cache Vite** : Supprimer `frontend/node_modules/.vite` et redémarrer
+
+**YOLO non chargé** : Vérifier `models/yolov5s.pt`, variables `.env` ou désactiver `AI_ENABLE_YOLO`.
+
+**Connexion DB** : Tester `psql` ou ajuster `DATABASE_URL`. Pour MySQL installer `pymysql` :
+```bash
+pip install pymysql
+```
 
 
 

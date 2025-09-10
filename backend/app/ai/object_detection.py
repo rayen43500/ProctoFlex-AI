@@ -12,6 +12,10 @@ import io
 import base64
 import json
 import os
+import hashlib
+import urllib.request
+
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -23,10 +27,12 @@ class ObjectDetectionService:
     
     def __init__(self):
         """Initialisation du service de détection d'objets"""
-        # Charger le modèle YOLO (si disponible)
-        self.model_path = os.getenv('YOLO_MODEL_PATH', 'models/yolov5s.pt')
+        self.model_path = os.getenv('YOLO_MODEL_PATH', settings.YOLO_MODEL_PATH)
         self.confidence_threshold = 0.5
         self.nms_threshold = 0.4
+        self.yolo_enabled = settings.AI_ENABLE_YOLO
+        self.auto_download = settings.YOLO_AUTO_DOWNLOAD
+        self._ensure_model_file()
         
         # Classes d'objets suspects
         self.suspicious_classes = {
@@ -50,18 +56,40 @@ class ObjectDetectionService:
         Returns:
             Modèle chargé ou None si non disponible
         """
+        if not self.yolo_enabled:
+            logger.info("YOLO désactivé via configuration (AI_ENABLE_YOLO=False)")
+            return None
+        if not os.path.isfile(self.model_path):
+            logger.warning(f"Fichier modèle YOLO introuvable: {self.model_path}")
+            return None
         try:
-            # Essayer de charger YOLO
             import torch
-            model = torch.hub.load('ultralytics/yolov5', 'custom', path=self.model_path)
+            model = torch.hub.load('ultralytics/yolov5', 'custom', path=self.model_path, _verbose=False)
             model.conf = self.confidence_threshold
             model.iou = self.nms_threshold
-            logger.info("Modèle YOLO chargé avec succès")
+            logger.info(f"Modèle YOLO chargé: {os.path.basename(self.model_path)}")
             return model
         except Exception as e:
-            logger.warning(f"Impossible de charger YOLO: {e}")
-            logger.info("Utilisation de la détection OpenCV basique")
+            logger.warning(f"Échec chargement YOLO ({self.model_path}): {e}. Fallback OpenCV.")
             return None
+
+    def _ensure_model_file(self):
+        """Vérifie la présence du modèle YOLO et tente un téléchargement si besoin."""
+        if not self.yolo_enabled:
+            return
+        if os.path.isfile(self.model_path):
+            return
+        if not self.auto_download:
+            logger.warning("Modèle YOLO manquant et YOLO_AUTO_DOWNLOAD désactivé")
+            return
+        os.makedirs(os.path.dirname(self.model_path), exist_ok=True)
+        download_url = "https://github.com/ultralytics/yolov5/releases/download/v6.0/yolov5s.pt"
+        try:
+            logger.info(f"Téléchargement du modèle YOLO depuis {download_url} ...")
+            urllib.request.urlretrieve(download_url, self.model_path)
+            logger.info("Téléchargement YOLO terminé")
+        except Exception as e:
+            logger.warning(f"Impossible de télécharger le modèle YOLO: {e}")
     
     def decode_base64_image(self, image_data: str) -> np.ndarray:
         """
