@@ -34,13 +34,36 @@ app.add_middleware(
 )
 
 # Stockage en mémoire (simulation)
-USERS: dict[str, dict] = {
-    # Utilisateurs de démo
-    "admin": {"username": "admin", "email": "admin@proctoflex.ai", "full_name": "Administrateur", "password": "admin123", "role": "admin"},
-    "student": {"username": "student", "email": "student@test.com", "full_name": "Étudiant Démo", "password": "student123", "role": "student"},
-}
-EMAIL_INDEX: dict[str, str] = {"admin@proctoflex.ai": "admin", "student@test.com": "student"}
+USERS: dict[str, dict] = {}
+EMAIL_INDEX: dict[str, str] = {}
 FACE_INDEX: dict[str, str] = {}
+
+# Sécurité: hachage mot de passe (bcrypt si dispo)
+try:
+    import bcrypt  # type: ignore
+    def hash_password(pw: str) -> str:
+        return bcrypt.hashpw(pw.encode(), bcrypt.gensalt()).decode()
+    def verify_password(pw: str, hashed: str) -> bool:
+        try:
+            return bcrypt.checkpw(pw.encode(), hashed.encode())
+        except Exception:
+            return pw == hashed
+except Exception:
+    def hash_password(pw: str) -> str:
+        return pw  # fallback non sécurisé (dev-only)
+    def verify_password(pw: str, hashed: str) -> bool:
+        return pw == hashed
+
+# Utilisateurs de démo (admin/student)
+def _bootstrap_users():
+    admin_h = hash_password("admin123")
+    student_h = hash_password("student123")
+    USERS["admin"] = {"username": "admin", "email": "admin@proctoflex.ai", "full_name": "Administrateur", "password": admin_h, "role": "admin"}
+    USERS["student"] = {"username": "student", "email": "student@test.com", "full_name": "Étudiant Démo", "password": student_h, "role": "student"}
+    EMAIL_INDEX["admin@proctoflex.ai"] = "admin"
+    EMAIL_INDEX["student@test.com"] = "student"
+
+_bootstrap_users()
 
 # Route de santé
 @app.get("/health")
@@ -80,7 +103,7 @@ async def get_users():
         },
         {
             "id": 2,
-            "username": "student1",
+            "username": "student",
             "email": "student@test.com",
             "full_name": "Étudiant Démo",
             "role": "student",
@@ -139,7 +162,8 @@ async def login(credentials: dict):
         if key:
             user = USERS.get(key)
 
-    if user and user.get("password") == password:
+    # Vérification mot de passe (haché ou clair selon env)
+    if user and verify_password(password, user.get("password", "")):
         token = f"fake_token_{user['username']}_123"
         return {
             "access_token": token,
@@ -227,7 +251,7 @@ async def register_with_face(payload: dict):
         "username": username,
         "email": email,
         "full_name": full_name,
-        "password": password,
+        "password": hash_password(password),
         "role": role,
     }
     EMAIL_INDEX[email] = username
@@ -333,6 +357,130 @@ async def surveillance_analyze(payload: dict):
         overall_risk = "medium"
 
     return {"timestamp": timestamp, "alerts": alerts, "overall_risk": overall_risk}
+
+# --- Consentement RGPD ---
+CONSENTS: list[dict] = []
+
+@app.post("/api/v1/auth/consent")
+async def record_consent(payload: dict):
+    CONSENTS.append({
+        "user": payload.get("user"),
+        "consent": bool(payload.get("consent", False)),
+        "timestamp": payload.get("timestamp"),
+        "version": payload.get("version", "1.0")
+    })
+    return {"success": True}
+
+# --- Timeline d'alertes ---
+ALERTS: list[dict] = []
+
+@app.get("/api/v1/alerts")
+async def list_alerts():
+    return ALERTS[-500:]
+
+@app.post("/api/v1/alerts")
+async def push_alert(alert: dict):
+    ALERTS.append(alert)
+    return {"success": True}
+
+# --- Examens CRUD (simulé) ---
+from uuid import uuid4
+EXAMS: dict[str, dict] = {
+    "1": {"id": "1", "title": "Examen de Programmation", "description": "Concepts de programmation", "duration_minutes": 120, "status": "active", "instructions": "Aucune ressource externe", "created_at": "2025-01-15T10:00:00Z"}
+}
+
+@app.get("/api/v1/exams")
+async def exams_list():
+    return list(EXAMS.values())
+
+@app.post("/api/v1/exams")
+async def exams_create(payload: dict):
+    new_id = str(uuid4())[:8]
+    exam = {
+        "id": new_id,
+        "title": payload.get("title", "Examen"),
+        "description": payload.get("description", ""),
+        "duration_minutes": int(payload.get("duration_minutes", 60)),
+        "status": payload.get("status", "draft"),
+        "instructions": payload.get("instructions", ""),
+        "created_at": payload.get("created_at", "2025-01-15T10:00:00Z"),
+    }
+    EXAMS[new_id] = exam
+    return exam
+
+@app.put("/api/v1/exams/{exam_id}")
+async def exams_update(exam_id: str, payload: dict):
+    if exam_id not in EXAMS:
+        raise HTTPException(status_code=404, detail="Examen introuvable")
+    EXAMS[exam_id].update({k: v for k, v in payload.items() if k in EXAMS[exam_id]})
+    return EXAMS[exam_id]
+
+@app.delete("/api/v1/exams/{exam_id}")
+async def exams_delete(exam_id: str):
+    if exam_id in EXAMS:
+        EXAMS.pop(exam_id)
+    return {"success": True}
+
+# --- Configuration de verrouillage (apps autorisées/interdites, domaines, politique) ---
+LOCK_CONFIG = {
+    "allowed_apps": ["code.exe", "excel.exe", "python.exe"],
+    "forbidden_apps": ["discord.exe", "whatsapp.exe", "teams.exe"],
+    "allowed_domains": ["proctoflex.ai", "docs.python.org"],
+    "policy": {
+        "auto_kill": False,
+        "repeat_threshold": 2
+    }
+}
+
+@app.get("/api/v1/config/lock")
+async def get_lock_config():
+    return LOCK_CONFIG
+
+@app.put("/api/v1/config/lock")
+async def update_lock_config(cfg: dict):
+    LOCK_CONFIG["allowed_apps"] = list(cfg.get("allowed_apps", LOCK_CONFIG["allowed_apps"]))
+    LOCK_CONFIG["forbidden_apps"] = list(cfg.get("forbidden_apps", LOCK_CONFIG.get("forbidden_apps", [])))
+    LOCK_CONFIG["allowed_domains"] = list(cfg.get("allowed_domains", LOCK_CONFIG["allowed_domains"]))
+    if "policy" in cfg and isinstance(cfg["policy"], dict):
+        policy = LOCK_CONFIG.get("policy", {})
+        policy["auto_kill"] = bool(cfg["policy"].get("auto_kill", policy.get("auto_kill", False)))
+        policy["repeat_threshold"] = int(cfg["policy"].get("repeat_threshold", policy.get("repeat_threshold", 2)))
+        LOCK_CONFIG["policy"] = policy
+    return LOCK_CONFIG
+
+# --- Upload d'enregistrements (webcam/micro/écran) ---
+RECORDS: list[dict] = []
+
+@app.post("/api/v1/records/upload")
+async def upload_record(payload: dict):
+    RECORDS.append({
+        "type": payload.get("type"),  # video/audio/screen
+        "session_id": payload.get("session_id"),
+        "timestamp": payload.get("timestamp"),
+        "size": len(payload.get("data", "")),
+    })
+    return {"success": True}
+
+# --- IA: audio et écran (simulé) ---
+@app.post("/api/v1/ai/analyze-audio")
+async def analyze_audio(payload: dict):
+    # Détection simple simulée
+    duration = float(payload.get("duration", 0))
+    has_voices = bool(payload.get("voices", False))
+    alerts = []
+    if has_voices and duration > 0:
+        alerts.append({"type": "third_party_voice", "severity": "medium", "message": "Voix tierce détectée"})
+    return {"alerts": alerts, "confidence": 0.7}
+
+@app.post("/api/v1/ai/analyze-screen")
+async def analyze_screen(payload: dict):
+    active_app = payload.get("active_app")
+    forbidden_list = [a.lower() for a in LOCK_CONFIG.get("forbidden_apps", [])]
+    if active_app and active_app.lower() in forbidden_list:
+        return {"alerts": [{"type": "forbidden_app", "severity": "high", "message": f"Application interdite: {active_app}"}]}
+    if active_app and active_app.lower() not in [a.lower() for a in LOCK_CONFIG["allowed_apps"]]:
+        return {"alerts": [{"type": "unlisted_app", "severity": "medium", "message": f"Application non listée: {active_app}"}]}
+    return {"alerts": []}
 
 # Routes IA (simulées)
 @app.post("/api/v1/ai/verify-identity")

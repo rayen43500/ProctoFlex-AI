@@ -115,11 +115,14 @@ async function createWindow(): Promise<void> {
   // Afficher la fenêtre quand elle est prête
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
+    // Démarrer la surveillance des processus
+    startProcessMonitor(mainWindow);
   });
 
   // Gérer la fermeture de la fenêtre
   mainWindow.on('closed', () => {
     // Fermer l'application
+    stopProcessMonitor();
     app.quit();
   });
 }
@@ -164,6 +167,88 @@ ipcMain.handle('log-security-alert', async (event: any, alertData: any) => {
     return false;
   }
 });
+
+// --- Process Monitor (polling) ---
+let monitorInterval: NodeJS.Timeout | null = null;
+
+async function fetchLockConfig() {
+  try {
+    const res = await fetch('http://localhost:8000/api/v1/config/lock');
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (e) {
+    console.error('Erreur fetch lock config:', e);
+    return null;
+  }
+}
+
+async function listProcessesLower(): Promise<string> {
+  try {
+    if (process.platform === 'win32') {
+      const { stdout } = await execAsync('tasklist | findstr /V /B "Image Name"');
+      return stdout.toLowerCase();
+    }
+    const { stdout } = await execAsync('ps -A -o comm');
+    return stdout.toLowerCase();
+  } catch (e) {
+    return '';
+  }
+}
+
+async function sendAlert(alert: any) {
+  try {
+    await fetch('http://localhost:8000/api/v1/alerts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...alert, timestamp: new Date().toISOString() })
+    });
+  } catch (e) {
+    console.error('Erreur envoi alerte:', e);
+  }
+}
+
+async function killProcessWindows(procNameLower: string) {
+  try {
+    await execAsync(`taskkill /IM ${procNameLower} /F`);
+  } catch {}
+}
+
+async function tickProcessMonitor(mainWindow: Electron.BrowserWindow | null) {
+  const cfg = await fetchLockConfig();
+  if (!cfg) return;
+  const allowed: string[] = (cfg.allowed_apps || []).map((s: string) => s.toLowerCase());
+  const forbidden: string[] = (cfg.forbidden_apps || []).map((s: string) => s.toLowerCase());
+  const autoKill: boolean = !!(cfg.policy && cfg.policy.auto_kill);
+
+  const procs = await listProcessesLower();
+  if (!procs) return;
+
+  for (const forb of forbidden) {
+    if (forb && procs.includes(forb)) {
+      await sendAlert({ type: 'forbidden_app', process: forb });
+      if (mainWindow) {
+        mainWindow.webContents.send('student-warning', { message: `⚠️ L'application "${forb}" est interdite pendant l'examen.` });
+      }
+      if (autoKill && process.platform === 'win32') {
+        await killProcessWindows(forb);
+      }
+    }
+  }
+}
+
+function startProcessMonitor(mainWindow: Electron.BrowserWindow) {
+  if (monitorInterval) return;
+  monitorInterval = setInterval(() => {
+    tickProcessMonitor(mainWindow);
+  }, 4000); // toutes les 4s
+}
+
+function stopProcessMonitor() {
+  if (monitorInterval) {
+    clearInterval(monitorInterval);
+    monitorInterval = null;
+  }
+}
 
 // Gestionnaires d'événements de l'application
 app.whenReady().then(() => {
