@@ -31,6 +31,7 @@ const Exams: React.FC = () => {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [pdfUploadStatus, setPdfUploadStatus] = useState<string | null>(null);
 
   async function load() {
     try {
@@ -84,6 +85,7 @@ const Exams: React.FC = () => {
     setInstructions('');
     setPdfFile(null);
     setFormError(null);
+    setPdfUploadStatus(null);
     setShowForm(true);
   }
 
@@ -96,18 +98,36 @@ const Exams: React.FC = () => {
     setInstructions(exam.instructions || '');
     setPdfFile(null);
     setFormError(null);
+    setPdfUploadStatus(null);
     setShowForm(true);
   }
 
   async function uploadPdfIfAny(examId: string) {
     if (!pdfFile) return;
-    const form = new FormData();
-    form.append('pdf_file', pdfFile);
-    await fetch(`${API_BASE}/exams/${examId}/material`, {
-      method: 'POST',
-      headers: { ...getAuthHeaders() },
-      body: form
-    });
+    setPdfUploadStatus('Upload du PDF en cours...');
+    try {
+      const form = new FormData();
+      form.append('file', pdfFile);
+      const response = await fetch(`${API_BASE}/exams/${examId}/material`, {
+        method: 'POST',
+        headers: { ...getAuthHeaders() },
+        body: form
+      });
+      
+      if (!response.ok) {
+        console.error('Erreur lors de l\'upload du PDF:', response.statusText);
+        setPdfUploadStatus('Erreur lors de l\'upload du PDF');
+        throw new Error('Échec de l\'upload du PDF');
+      }
+      
+      const result = await response.json();
+      console.log('PDF uploadé avec succès:', result);
+      setPdfUploadStatus('PDF uploadé avec succès');
+    } catch (error) {
+      console.error('Erreur upload PDF:', error);
+      setPdfUploadStatus('Erreur lors de l\'upload du PDF');
+      // Ne pas bloquer la création de l'examen si l'upload PDF échoue
+    }
   }
 
   async function submitForm(e: React.FormEvent) {
@@ -235,6 +255,22 @@ const Exams: React.FC = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700">Document PDF (optionnel)</label>
                 <input type="file" accept="application/pdf" onChange={(e) => setPdfFile(e.target.files?.[0] || null)} />
+                {pdfFile && (
+                  <div className="mt-1 text-sm text-gray-600">
+                    Fichier sélectionné: {pdfFile.name}
+                  </div>
+                )}
+                {pdfUploadStatus && (
+                  <div className={`mt-1 text-sm p-2 rounded ${
+                    pdfUploadStatus.includes('succès') 
+                      ? 'bg-green-50 text-green-700' 
+                      : pdfUploadStatus.includes('Erreur')
+                      ? 'bg-red-50 text-red-700'
+                      : 'bg-blue-50 text-blue-700'
+                  }`}>
+                    {pdfUploadStatus}
+                  </div>
+                )}
               </div>
 
               {formError && <div className="bg-red-50 text-red-700 p-2 rounded text-sm">{formError}</div>}
