@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 # Configuration de la base de données
 import os as _os
-DATABASE_URL = _os.getenv("DATABASE_URL", "postgresql://postgres:root@localhost:5432/proctoflex")
+DATABASE_URL = _os.getenv("DATABASE_URL", "postgresql://postgres:root@postgres:5432/proctoflex")
 
 try:
     engine = create_engine(DATABASE_URL)
@@ -65,7 +65,8 @@ try:
     
     # Test de connexion
     with engine.connect() as conn:
-        conn.execute("SELECT 1")
+        from sqlalchemy import text
+        conn.execute(text("SELECT 1"))
     DB_OK = True
     logger.info("✅ Connexion à la base de données réussie")
 except Exception as e:
