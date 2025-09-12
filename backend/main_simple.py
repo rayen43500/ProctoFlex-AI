@@ -3,17 +3,77 @@ ProctoFlex AI - Backend API (Version Simplifiée)
 Serveur FastAPI pour la surveillance d'examens en ligne
 """
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer
+from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 import uvicorn
 from typing import List
 import logging
+import os
+from datetime import datetime
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, Text, ForeignKey
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.sql import func
 
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Configuration de la base de données
+import os as _os
+DATABASE_URL = _os.getenv("DATABASE_URL", "postgresql://postgres:root@localhost:5432/proctoflex")
+
+try:
+    engine = create_engine(DATABASE_URL)
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    Base = declarative_base()
+    
+    # Modèles de base de données
+    class UserDB(Base):
+        __tablename__ = "users"
+        id = Column(Integer, primary_key=True, index=True)
+        email = Column(String, unique=True, index=True, nullable=False)
+        username = Column(String, unique=True, index=True, nullable=False)
+        full_name = Column(String, nullable=False)
+        hashed_password = Column(String, nullable=False)
+        role = Column(String, default="student")
+        is_active = Column(Boolean, default=True)
+        created_at = Column(DateTime(timezone=True), server_default=func.now())
+        updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    class ExamDB(Base):
+        __tablename__ = "exams"
+        id = Column(Integer, primary_key=True, index=True)
+        title = Column(String, nullable=False)
+        description = Column(Text)
+        duration_minutes = Column(Integer, nullable=False)
+        instructions = Column(Text)
+        status = Column(String, default="draft")
+        start_time = Column(DateTime(timezone=True))
+        end_time = Column(DateTime(timezone=True))
+        student_id = Column(Integer, ForeignKey("users.id"))
+        instructor_id = Column(Integer, ForeignKey("users.id"))
+        allowed_apps = Column(Text)
+        allowed_domains = Column(Text)
+        pdf_filename = Column(String)
+        is_active = Column(Boolean, default=True)
+        created_at = Column(DateTime(timezone=True), server_default=func.now())
+        updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Test de connexion
+    with engine.connect() as conn:
+        conn.execute("SELECT 1")
+    DB_OK = True
+    logger.info("✅ Connexion à la base de données réussie")
+except Exception as e:
+    logger.warning(f"⚠️ Base de données non disponible: {e}")
+    DB_OK = False
+    UserDB = None
+    ExamDB = None
+    SessionLocal = None
 
 # Configuration de base
 app = FastAPI(
@@ -87,30 +147,7 @@ async def root():
         "health": "/health"
     }
 
-# Routes API de base
-@app.get("/api/v1/users")
-async def get_users():
-    """Liste des utilisateurs (simulée)"""
-    return [
-        {
-            "id": 1,
-            "username": "admin",
-            "email": "admin@proctoflex.ai",
-            "full_name": "Administrateur",
-            "role": "admin",
-            "is_active": True,
-            "created_at": "2025-01-15T10:00:00Z",
-        },
-        {
-            "id": 2,
-            "username": "student",
-            "email": "student@test.com",
-            "full_name": "Étudiant Démo",
-            "role": "student",
-            "is_active": True,
-            "created_at": "2025-01-15T10:00:00Z",
-        }
-    ]
+# Routes API de base - Supprimées car remplacées par les endpoints complets plus bas
 
 
 @app.get("/api/v1/sessions")
@@ -376,37 +413,11 @@ from fastapi.responses import FileResponse
 import os
 
 # --- Persistence PostgreSQL pour Examens (SQLAlchemy) ---
-import os as _os
-from sqlalchemy import create_engine, Column, String, Integer, Text
-from sqlalchemy.orm import declarative_base, sessionmaker
-
-DATABASE_URL = _os.getenv("DATABASE_URL", "postgresql://postgres:root@localhost:5432/proctoflex")
-try:
-    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    BaseDB = declarative_base()
-    DB_OK = True
-except Exception as _e:
-    print(f"[main_simple] Warning: DB init failed: {_e}")
-    engine = None
-    SessionLocal = None
-    BaseDB = declarative_base()
-    DB_OK = False
-
-class ExamDB(BaseDB):
-    __tablename__ = "exams_simple"
-    id = Column(String, primary_key=True, index=True)
-    title = Column(String(255), nullable=False)
-    description = Column(Text, nullable=True)
-    duration_minutes = Column(Integer, nullable=False, default=60)
-    status = Column(String(32), nullable=False, default="draft")
-    instructions = Column(Text, nullable=True)
-    created_at = Column(String(64), nullable=True)
-    pdf_filename = Column(String(255), nullable=True)
+# Configuration de base de données déplacée en haut du fichier
 
 if DB_OK:
     try:
-        BaseDB.metadata.create_all(bind=engine)
+        Base.metadata.create_all(bind=engine)
     except Exception as _e:
         print(f"[main_simple] Warning: create_all failed: {_e}")
         DB_OK = False
@@ -555,6 +566,254 @@ async def get_exam_material(exam_id: str):
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="Fichier introuvable")
     return FileResponse(path, media_type="application/pdf", filename=filename)
+
+# --- Endpoints Utilisateurs ---
+@app.get("/api/v1/users")
+async def get_users():
+    """Récupérer la liste des utilisateurs"""
+    if DB_OK:
+        with SessionLocal() as db:
+            users = db.query(UserDB).all()
+            return [
+                {
+                    "id": user.id,
+                    "email": user.email,
+                    "username": user.username,
+                    "full_name": user.full_name,
+                    "role": user.role,
+                    "is_active": user.is_active,
+                    "created_at": user.created_at,
+                    "updated_at": user.updated_at
+                }
+                for user in users
+            ]
+    return list(USERS.values())
+
+@app.get("/api/v1/users/stats")
+async def get_user_stats():
+    """Récupérer les statistiques des utilisateurs"""
+    if DB_OK:
+        with SessionLocal() as db:
+            total_users = db.query(UserDB).count()
+            students = db.query(UserDB).filter(UserDB.role == "student").count()
+            admins = db.query(UserDB).filter(UserDB.role == "admin").count()
+            instructors = db.query(UserDB).filter(UserDB.role == "instructor").count()
+            
+            # Utilisateurs actifs aujourd'hui
+            from datetime import datetime, date
+            today = date.today()
+            active_today = db.query(UserDB).filter(
+                UserDB.created_at >= today,
+                UserDB.is_active == True
+            ).count()
+            
+            return {
+                "total_users": total_users,
+                "students": students,
+                "admins": admins,
+                "instructors": instructors,
+                "active_today": active_today
+            }
+    
+    # Fallback pour les données en mémoire
+    users_list = list(USERS.values())
+    return {
+        "total_users": len(users_list),
+        "students": len([u for u in users_list if u.get("role") == "student"]),
+        "admins": len([u for u in users_list if u.get("role") == "admin"]),
+        "instructors": len([u for u in users_list if u.get("role") == "instructor"]),
+        "active_today": len(users_list)  # Approximation
+    }
+
+@app.get("/api/v1/users/{user_id}")
+async def get_user(user_id: int):
+    """Récupérer un utilisateur par son ID"""
+    if DB_OK:
+        with SessionLocal() as db:
+            user = db.query(UserDB).filter(UserDB.id == user_id).first()
+            if not user:
+                raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+            return {
+                "id": user.id,
+                "email": user.email,
+                "username": user.username,
+                "full_name": user.full_name,
+                "role": user.role,
+                "is_active": user.is_active,
+                "created_at": user.created_at,
+                "updated_at": user.updated_at
+            }
+    
+    # Fallback pour les données en mémoire
+    user = USERS.get(str(user_id))
+    if not user:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+    return user
+
+@app.post("/api/v1/users")
+async def create_user(user_data: dict):
+    """Créer un nouvel utilisateur"""
+    if DB_OK:
+        with SessionLocal() as db:
+            # Vérifier si l'email existe déjà
+            existing_user = db.query(UserDB).filter(UserDB.email == user_data["email"]).first()
+            if existing_user:
+                raise HTTPException(status_code=400, detail="Email déjà utilisé")
+            
+            # Vérifier si le nom d'utilisateur existe déjà
+            existing_username = db.query(UserDB).filter(UserDB.username == user_data["username"]).first()
+            if existing_username:
+                raise HTTPException(status_code=400, detail="Nom d'utilisateur déjà utilisé")
+            
+            # Créer l'utilisateur
+            db_user = UserDB(
+                email=user_data["email"],
+                username=user_data["username"],
+                full_name=user_data["full_name"],
+                hashed_password=hash_password(user_data["password"]),
+                role=user_data.get("role", "student"),
+                is_active=user_data.get("is_active", True)
+            )
+            
+            db.add(db_user)
+            db.commit()
+            db.refresh(db_user)
+            
+            return {
+                "id": db_user.id,
+                "email": db_user.email,
+                "username": db_user.username,
+                "full_name": db_user.full_name,
+                "role": db_user.role,
+                "is_active": db_user.is_active,
+                "created_at": db_user.created_at,
+                "updated_at": db_user.updated_at
+            }
+    
+    # Fallback pour les données en mémoire
+    user_id = str(len(USERS) + 1)
+    USERS[user_id] = {
+        "id": user_id,
+        "email": user_data["email"],
+        "username": user_data["username"],
+        "full_name": user_data["full_name"],
+        "role": user_data.get("role", "student"),
+        "is_active": user_data.get("is_active", True),
+        "created_at": datetime.now().isoformat()
+    }
+    EMAIL_INDEX[user_data["email"]] = user_id
+    return USERS[user_id]
+
+@app.put("/api/v1/users/{user_id}")
+async def update_user(user_id: int, user_data: dict):
+    """Mettre à jour un utilisateur"""
+    if DB_OK:
+        with SessionLocal() as db:
+            db_user = db.query(UserDB).filter(UserDB.id == user_id).first()
+            if not db_user:
+                raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+            
+            # Vérifier l'email unique si modifié
+            if "email" in user_data and user_data["email"] != db_user.email:
+                existing_user = db.query(UserDB).filter(UserDB.email == user_data["email"]).first()
+                if existing_user:
+                    raise HTTPException(status_code=400, detail="Email déjà utilisé")
+            
+            # Vérifier le nom d'utilisateur unique si modifié
+            if "username" in user_data and user_data["username"] != db_user.username:
+                existing_username = db.query(UserDB).filter(UserDB.username == user_data["username"]).first()
+                if existing_username:
+                    raise HTTPException(status_code=400, detail="Nom d'utilisateur déjà utilisé")
+            
+            # Mettre à jour les champs
+            for field, value in user_data.items():
+                if field == "password":
+                    setattr(db_user, "hashed_password", hash_password(value))
+                elif hasattr(db_user, field):
+                    setattr(db_user, field, value)
+            
+            db_user.updated_at = datetime.now()
+            db.commit()
+            db.refresh(db_user)
+            
+            return {
+                "id": db_user.id,
+                "email": db_user.email,
+                "username": db_user.username,
+                "full_name": db_user.full_name,
+                "role": db_user.role,
+                "is_active": db_user.is_active,
+                "created_at": db_user.created_at,
+                "updated_at": db_user.updated_at
+            }
+    
+    # Fallback pour les données en mémoire
+    user = USERS.get(str(user_id))
+    if not user:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+    
+    for field, value in user_data.items():
+        if field != "password":  # Ne pas stocker le mot de passe en clair
+            user[field] = value
+    
+    user["updated_at"] = datetime.now().isoformat()
+    return user
+
+@app.delete("/api/v1/users/{user_id}")
+async def delete_user(user_id: int):
+    """Supprimer un utilisateur (soft delete)"""
+    if DB_OK:
+        with SessionLocal() as db:
+            db_user = db.query(UserDB).filter(UserDB.id == user_id).first()
+            if not db_user:
+                raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+            
+            # Soft delete - désactiver l'utilisateur
+            db_user.is_active = False
+            db_user.updated_at = datetime.now()
+            db.commit()
+            
+            return {"message": "Utilisateur supprimé avec succès"}
+    
+    # Fallback pour les données en mémoire
+    user = USERS.get(str(user_id))
+    if not user:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+    
+    user["is_active"] = False
+    user["updated_at"] = datetime.now().isoformat()
+    return {"message": "Utilisateur supprimé avec succès"}
+
+@app.patch("/api/v1/users/{user_id}/toggle-status")
+async def toggle_user_status(user_id: int):
+    """Activer/Désactiver un utilisateur"""
+    if DB_OK:
+        with SessionLocal() as db:
+            db_user = db.query(UserDB).filter(UserDB.id == user_id).first()
+            if not db_user:
+                raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+            
+            db_user.is_active = not db_user.is_active
+            db_user.updated_at = datetime.now()
+            db.commit()
+            
+            return {
+                "message": f"Utilisateur {'activé' if db_user.is_active else 'désactivé'} avec succès",
+                "is_active": db_user.is_active
+            }
+    
+    # Fallback pour les données en mémoire
+    user = USERS.get(str(user_id))
+    if not user:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+    
+    user["is_active"] = not user.get("is_active", True)
+    user["updated_at"] = datetime.now().isoformat()
+    
+    return {
+        "message": f"Utilisateur {'activé' if user['is_active'] else 'désactivé'} avec succès",
+        "is_active": user["is_active"]
+    }
 
 # --- Configuration de verrouillage (apps autorisées/interdites, domaines, politique) ---
 LOCK_CONFIG = {
