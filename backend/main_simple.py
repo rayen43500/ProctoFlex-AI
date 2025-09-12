@@ -112,27 +112,6 @@ async def get_users():
         }
     ]
 
-@app.get("/api/v1/exams")
-async def get_exams():
-    """Liste des examens (simulée)"""
-    return [
-        {
-            "id": 1,
-            "title": "Examen de Programmation",
-            "description": "Examen sur les concepts de programmation",
-            "duration_minutes": 120,
-            "status": "active",
-            "created_at": "2025-01-15T10:00:00Z"
-        },
-        {
-            "id": 2,
-            "title": "Examen de Mathématiques",
-            "description": "Examen de mathématiques avancées",
-            "duration_minutes": 90,
-            "status": "scheduled",
-            "created_at": "2025-01-15T10:00:00Z"
-        }
-    ]
 
 @app.get("/api/v1/sessions")
 async def get_sessions():
