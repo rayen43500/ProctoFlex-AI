@@ -43,14 +43,18 @@ class Exam(Base):
     title = Column(String, nullable=False)
     description = Column(Text)
     duration_minutes = Column(Integer, nullable=False)
-    start_time = Column(DateTime(timezone=True), nullable=False)
-    end_time = Column(DateTime(timezone=True), nullable=False)
+    instructions = Column(Text)  # Instructions pour l'examen
+    status = Column(String, default="draft")  # draft, scheduled, active, completed, cancelled
+    start_time = Column(DateTime(timezone=True))
+    end_time = Column(DateTime(timezone=True))
     student_id = Column(Integer, ForeignKey("users.id"))
     instructor_id = Column(Integer, ForeignKey("users.id"))
     allowed_apps = Column(Text)  # JSON string des applications autorisées
     allowed_domains = Column(Text)  # JSON string des domaines web autorisés
+    pdf_path = Column(String)  # Chemin vers le fichier PDF
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Relations
     student = relationship("User", back_populates="exams")

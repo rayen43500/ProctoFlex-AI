@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     
     # Base de données
     # Format accepté: postgresql://user:pass@host:port/db  ou  mysql+pymysql://user:pass@host:3306/db  ou  sqlite:///./local.db
-    DATABASE_URL: str = "postgresql://root:root@localhost:5432/proctoflex"
+    DATABASE_URL: str = "postgresql://postgres:root@localhost:5432/proctoflex"
     DATABASE_TEST_URL: str = "sqlite:///./test.db"  # Utilisé dans les tests automatisés
     DB_ECHO: bool = False  # Activer SQLAlchemy echo pour debug
 

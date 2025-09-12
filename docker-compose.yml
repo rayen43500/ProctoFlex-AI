@@ -7,7 +7,7 @@ services:
     container_name: proctoflex-postgres
     environment:
       POSTGRES_DB: proctoflex
-      POSTGRES_USER: root
+      POSTGRES_USER: postgres
       POSTGRES_PASSWORD: root
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -38,7 +38,7 @@ services:
       dockerfile: Dockerfile
     container_name: proctoflex-backend
     environment:
-      - DATABASE_URL=postgresql://root:root@postgres:5432/proctoflex
+      - DATABASE_URL=postgresql://postgres:root@postgres:5432/proctoflex
       - REDIS_URL=redis://redis:6379
       - SECRET_KEY=your-secret-key-here-change-in-production
       - ALGORITHM=HS256
@@ -183,7 +183,7 @@ services:
       dockerfile: Dockerfile.surveillance
     container_name: proctoflex-surveillance
     environment:
-      - DATABASE_URL=postgresql://root:root@postgres:5432/proctoflex
+      - DATABASE_URL=postgresql://postgres:root@postgres:5432/proctoflex
       - REDIS_URL=redis://redis:6379
       - AI_SERVICE_URL=http://ai-service:8001
     volumes:

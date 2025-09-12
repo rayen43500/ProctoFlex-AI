@@ -32,14 +32,18 @@ CREATE TABLE IF NOT EXISTS exams (
     title VARCHAR(255) NOT NULL,
     description TEXT,
     duration_minutes INTEGER NOT NULL,
-    start_time TIMESTAMP WITH TIME ZONE NOT NULL,
-    end_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    instructions TEXT,
+    status VARCHAR(50) DEFAULT 'draft',
+    start_time TIMESTAMP WITH TIME ZONE,
+    end_time TIMESTAMP WITH TIME ZONE,
     student_id INTEGER REFERENCES users(id),
     instructor_id INTEGER REFERENCES users(id),
     allowed_apps TEXT,
     allowed_domains TEXT,
+    pdf_path VARCHAR(500),
     is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS exam_sessions (

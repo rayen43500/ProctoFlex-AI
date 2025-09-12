@@ -401,7 +401,7 @@ import os as _os
 from sqlalchemy import create_engine, Column, String, Integer, Text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-DATABASE_URL = _os.getenv("DATABASE_URL", "postgresql://root:root@localhost:5432/proctoflex")
+DATABASE_URL = _os.getenv("DATABASE_URL", "postgresql://postgres:root@localhost:5432/proctoflex")
 try:
     engine = create_engine(DATABASE_URL, pool_pre_ping=True)
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

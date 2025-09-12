@@ -3,14 +3,16 @@ import { Plus, Edit, Trash2, Eye } from 'lucide-react';
 import { API_BASE, getAuthHeaders } from '@/contexts/AuthContext';
 
 type Exam = {
-  id: string;
+  id: number;
   title: string;
   description: string;
   duration_minutes: number;
   status: string;
   instructions?: string;
   created_at?: string;
-  pdf_filename?: string | null;
+  pdf_path?: string | null;
+  instructor_id?: number;
+  is_active: boolean;
 };
 
 const Exams: React.FC = () => {
@@ -34,10 +36,10 @@ const Exams: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`${API_BASE}/exams`, { headers: { 'Content-Type': 'application/json', ...getAuthHeaders() } });
+      const res = await fetch(`${API_BASE}/api/v1/exams`, { headers: { 'Content-Type': 'application/json', ...getAuthHeaders() } });
       if (!res.ok) throw new Error(`Erreur ${res.status}`);
       const data = await res.json();
-      setExams(Array.isArray(data) ? data : []);
+      setExams(data.exams || []);
     } catch (e: any) {
       setError(e.message || 'Erreur de chargement');
     } finally {
@@ -100,8 +102,8 @@ const Exams: React.FC = () => {
   async function uploadPdfIfAny(examId: string) {
     if (!pdfFile) return;
     const form = new FormData();
-    form.append('file', pdfFile);
-    await fetch(`${API_BASE}/exams/${examId}/material`, {
+    form.append('pdf_file', pdfFile);
+    await fetch(`${API_BASE}/api/v1/exams/${examId}/pdf`, {
       method: 'POST',
       headers: { ...getAuthHeaders() },
       body: form
@@ -114,9 +116,10 @@ const Exams: React.FC = () => {
     setSubmitting(true);
     setFormError(null);
     try {
-      const payload = { title, description, duration_minutes: duration, status, instructions } as any;
       if (editing) {
-        const res = await fetch(`${API_BASE}/exams/${editing.id}`, {
+        // Mise à jour d'un examen existant
+        const payload = { title, description, duration_minutes: duration, status, instructions };
+        const res = await fetch(`${API_BASE}/api/v1/exams/${editing.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
           body: JSON.stringify(payload)
@@ -131,15 +134,25 @@ const Exams: React.FC = () => {
           await load();
         }
       } else {
-        const res = await fetch(`${API_BASE}/exams`, {
+        // Création d'un nouvel examen avec FormData pour supporter les fichiers
+        const formData = new FormData();
+        formData.append('title', title);
+        formData.append('description', description || '');
+        formData.append('duration_minutes', duration.toString());
+        formData.append('instructions', instructions || '');
+        formData.append('status', status);
+        
+        if (pdfFile) {
+          formData.append('pdf_file', pdfFile);
+        }
+        
+        const res = await fetch(`${API_BASE}/api/v1/exams`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-          body: JSON.stringify(payload)
+          headers: { ...getAuthHeaders() },
+          body: formData
         });
         if (!res.ok) throw new Error('Échec de la création');
         const created = await res.json().catch(() => null);
-        const examId = (created && created.id) ? created.id : undefined;
-        if (examId) await uploadPdfIfAny(examId);
         if (created && created.id) {
           setExams((prev) => [created, ...prev]);
         } else {
@@ -148,7 +161,7 @@ const Exams: React.FC = () => {
       }
       setShowForm(false);
     } catch (err: any) {
-      setFormError(err.message || 'Erreur lors de l’enregistrement');
+      setFormError(err.message || 'Erreur lors de l'enregistrement');
     } finally {
       setSubmitting(false);
     }
@@ -158,7 +171,7 @@ const Exams: React.FC = () => {
     const ok = confirm(`Supprimer l'examen "${exam.title}" ?`);
     if (!ok) return;
     try {
-      const res = await fetch(`${API_BASE}/exams/${exam.id}`, {
+      const res = await fetch(`${API_BASE}/api/v1/exams/${exam.id}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
       });
@@ -267,8 +280,8 @@ const Exams: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex space-x-2">
-                          {exam.pdf_filename && (
-                            <a href={`${API_BASE}/exams/${exam.id}/material`} target="_blank" rel="noreferrer" className="text-blue-600 hover:text-blue-900" title="PDF">PDF</a>
+                          {exam.pdf_path && (
+                            <a href={`${API_BASE}/api/v1/exams/${exam.id}/pdf`} target="_blank" rel="noreferrer" className="text-blue-600 hover:text-blue-900" title="PDF">PDF</a>
                           )}
                           <button onClick={() => openEdit(exam)} className="text-indigo-600 hover:text-indigo-900" title="Modifier"><Edit className="h-4 w-4" /></button>
                           <button onClick={() => deleteExam(exam)} className="text-red-600 hover:text-red-900" title="Supprimer"><Trash2 className="h-4 w-4" /></button>
