@@ -13,6 +13,16 @@ type Exam = {
   pdf_filename?: string | null;
   instructor_id?: number;
   is_active?: boolean;
+  selected_students?: number[];
+};
+
+type User = {
+  id: number;
+  email: string;
+  username: string;
+  full_name: string;
+  role: string;
+  is_active: boolean;
 };
 
 const Exams: React.FC = () => {
@@ -33,6 +43,11 @@ const Exams: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [pdfUploadStatus, setPdfUploadStatus] = useState<string | null>(null);
 
+  // Students management
+  const [students, setStudents] = useState<User[]>([]);
+  const [selectedStudents, setSelectedStudents] = useState<number[]>([]);
+  const [loadingStudents, setLoadingStudents] = useState(false);
+
   async function load() {
     try {
       setLoading(true);
@@ -48,7 +63,26 @@ const Exams: React.FC = () => {
     }
   }
 
-  useEffect(() => { load(); }, []);
+  async function loadStudents() {
+    try {
+      setLoadingStudents(true);
+      const res = await fetch(`${API_BASE}/users`, { headers: { 'Content-Type': 'application/json', ...getAuthHeaders() } });
+      if (!res.ok) throw new Error('Erreur lors du chargement des étudiants');
+      const data = await res.json();
+      // Filtrer seulement les étudiants
+      const studentUsers = data.filter((user: User) => user.role === 'student' && user.is_active);
+      setStudents(studentUsers);
+    } catch (err) {
+      console.error('Erreur lors du chargement des étudiants:', err);
+    } finally {
+      setLoadingStudents(false);
+    }
+  }
+
+  useEffect(() => { 
+    load(); 
+    loadStudents();
+  }, []);
 
   function getStatusColor(status: string) {
     switch (status) {
@@ -86,6 +120,7 @@ const Exams: React.FC = () => {
     setPdfFile(null);
     setFormError(null);
     setPdfUploadStatus(null);
+    setSelectedStudents([]);
     setShowForm(true);
   }
 
@@ -160,7 +195,9 @@ const Exams: React.FC = () => {
           description: description || '',
           duration_minutes: duration,
           instructions: instructions || '',
-          status
+          status,
+          selected_students: selectedStudents,
+          instructor_id: 1 // ID de l'instructeur actuel
         };
         
         const res = await fetch(`${API_BASE}/exams`, {
@@ -201,6 +238,22 @@ const Exams: React.FC = () => {
     } catch (err: any) {
       alert(err.message || 'Erreur lors de la suppression');
     }
+  }
+
+  function toggleStudent(studentId: number) {
+    setSelectedStudents(prev => 
+      prev.includes(studentId) 
+        ? prev.filter(id => id !== studentId)
+        : [...prev, studentId]
+    );
+  }
+
+  function selectAllStudents() {
+    setSelectedStudents(students.map(s => s.id));
+  }
+
+  function deselectAllStudents() {
+    setSelectedStudents([]);
   }
 
   return (
@@ -272,6 +325,55 @@ const Exams: React.FC = () => {
                   </div>
                 )}
               </div>
+
+              {/* Sélection des étudiants */}
+              {!editing && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Étudiants concernés ({selectedStudents.length} sélectionné{selectedStudents.length > 1 ? 's' : ''})
+                  </label>
+                  
+                  <div className="flex gap-2 mb-3">
+                    <button
+                      type="button"
+                      onClick={selectAllStudents}
+                      className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                    >
+                      Tout sélectionner
+                    </button>
+                    <button
+                      type="button"
+                      onClick={deselectAllStudents}
+                      className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+                    >
+                      Tout désélectionner
+                    </button>
+                  </div>
+
+                  <div className="max-h-40 overflow-y-auto border rounded p-3 space-y-2">
+                    {loadingStudents ? (
+                      <div className="text-sm text-gray-500">Chargement des étudiants...</div>
+                    ) : students.length === 0 ? (
+                      <div className="text-sm text-gray-500">Aucun étudiant disponible</div>
+                    ) : (
+                      students.map((student) => (
+                        <label key={student.id} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                          <input
+                            type="checkbox"
+                            checked={selectedStudents.includes(student.id)}
+                            onChange={() => toggleStudent(student.id)}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          />
+                          <div className="flex-1">
+                            <div className="text-sm font-medium text-gray-900">{student.full_name}</div>
+                            <div className="text-xs text-gray-500">{student.email}</div>
+                          </div>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
 
               {formError && <div className="bg-red-50 text-red-700 p-2 rounded text-sm">{formError}</div>}
 

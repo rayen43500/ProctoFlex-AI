@@ -54,14 +54,21 @@ try:
         status = Column(String, default="draft")
         start_time = Column(DateTime(timezone=True))
         end_time = Column(DateTime(timezone=True))
-        student_id = Column(Integer, ForeignKey("users.id"))
         instructor_id = Column(Integer, ForeignKey("users.id"))
         allowed_apps = Column(Text)
         allowed_domains = Column(Text)
-        pdf_filename = Column(String)
+        pdf_path = Column(String)
         is_active = Column(Boolean, default=True)
         created_at = Column(DateTime(timezone=True), server_default=func.now())
         updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    class ExamStudentDB(Base):
+        __tablename__ = "exam_students"
+        id = Column(Integer, primary_key=True, index=True)
+        exam_id = Column(Integer, ForeignKey("exams.id"))
+        student_id = Column(Integer, ForeignKey("users.id"))
+        assigned_at = Column(DateTime(timezone=True), server_default=func.now())
+        status = Column(String, default="assigned")  # assigned, started, completed, failed
     
     # Test de connexion
     with engine.connect() as conn:
@@ -438,28 +445,41 @@ async def exams_list():
                     "status": r.status,
                     "instructions": r.instructions,
                     "created_at": r.created_at,
-                    "pdf_filename": r.pdf_filename,
+                    "pdf_path": r.pdf_path,
                 } for r in rows
             ]
     return list(EXAMS.values())
 
 @app.post("/api/v1/exams")
 async def exams_create(payload: dict):
-    new_id = str(uuid4())[:8]
     if DB_OK:
         with SessionLocal() as db:
+            # Créer l'examen
             row = ExamDB(
-                id=new_id,
                 title=payload.get("title", "Examen"),
                 description=payload.get("description", ""),
                 duration_minutes=int(payload.get("duration_minutes", 60)),
                 status=payload.get("status", "draft"),
                 instructions=payload.get("instructions", ""),
+                instructor_id=payload.get("instructor_id", 1),  # ID de l'instructeur
                 created_at=payload.get("created_at", "2025-01-15T10:00:00Z"),
-                pdf_filename=None,
+                pdf_path=None,
             )
             db.add(row)
             db.commit()
+            
+            # Assigner les étudiants sélectionnés
+            selected_students = payload.get("selected_students", [])
+            for student_id in selected_students:
+                exam_student = ExamStudentDB(
+                    exam_id=row.id,
+                    student_id=student_id,
+                    status="assigned"
+                )
+                db.add(exam_student)
+            
+            db.commit()
+            
             return {
                 "id": row.id,
                 "title": row.title,
@@ -467,8 +487,10 @@ async def exams_create(payload: dict):
                 "duration_minutes": row.duration_minutes,
                 "status": row.status,
                 "instructions": row.instructions,
+                "instructor_id": row.instructor_id,
+                "selected_students": selected_students,
                 "created_at": row.created_at,
-                "pdf_filename": row.pdf_filename,
+                "pdf_path": row.pdf_path,
             }
     exam = {
         "id": new_id,
@@ -478,7 +500,7 @@ async def exams_create(payload: dict):
         "status": payload.get("status", "draft"),
         "instructions": payload.get("instructions", ""),
         "created_at": payload.get("created_at", "2025-01-15T10:00:00Z"),
-        "pdf_filename": None,
+        "pdf_path": None,
     }
     EXAMS[new_id] = exam
     return exam
@@ -503,7 +525,7 @@ async def exams_update(exam_id: str, payload: dict):
                 "status": row.status,
                 "instructions": row.instructions,
                 "created_at": row.created_at,
-                "pdf_filename": row.pdf_filename,
+                "pdf_path": row.pdf_path,
             }
     if exam_id not in EXAMS:
         raise HTTPException(status_code=404, detail="Examen introuvable")
@@ -541,12 +563,12 @@ async def upload_exam_material(exam_id: str, file: UploadFile = File(...)):
     with open(dest, "wb") as f:
         f.write(content)
     if DB_OK:
-        row.pdf_filename = filename
+        row.pdf_path = filename
         db.commit()
     else:
         if exam_id not in EXAMS:
             raise HTTPException(status_code=404, detail="Examen introuvable")
-        EXAMS[exam_id]["pdf_filename"] = filename
+        EXAMS[exam_id]["pdf_path"] = filename
     return {"success": True, "filename": filename}
 
 @app.get("/api/v1/exams/{exam_id}/material")
@@ -555,18 +577,83 @@ async def get_exam_material(exam_id: str):
     if DB_OK:
         with SessionLocal() as db:
             row = db.query(ExamDB).get(exam_id)
-            if not row or not row.pdf_filename:
+            if not row or not row.pdf_path:
                 raise HTTPException(status_code=404, detail="Aucun document")
-            filename = row.pdf_filename
+            filename = row.pdf_path
     else:
         exam = EXAMS.get(exam_id)
-        if not exam or not exam.get("pdf_filename"):
+        if not exam or not exam.get("pdf_path"):
             raise HTTPException(status_code=404, detail="Aucun document")
-        filename = exam["pdf_filename"]
+        filename = exam["pdf_path"]
     path = os.path.join(UPLOAD_DIR, filename)
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="Fichier introuvable")
     return FileResponse(path, media_type="application/pdf", filename=filename)
+
+# --- Endpoints pour les étudiants ---
+@app.get("/api/v1/students/{student_id}/exams")
+async def get_student_exams(student_id: int):
+    """Récupérer les examens assignés à un étudiant"""
+    if DB_OK:
+        with SessionLocal() as db:
+            # Récupérer les examens assignés à l'étudiant
+            exam_students = db.query(ExamStudentDB).filter(
+                ExamStudentDB.student_id == student_id
+            ).all()
+            
+            exams = []
+            for exam_student in exam_students:
+                exam = db.query(ExamDB).filter(ExamDB.id == exam_student.exam_id).first()
+                if exam:
+                    exams.append({
+                        "id": exam.id,
+                        "title": exam.title,
+                        "description": exam.description,
+                        "duration_minutes": exam.duration_minutes,
+                        "instructions": exam.instructions,
+                        "status": exam.status,
+                        "pdf_path": exam.pdf_path,
+                        "assigned_at": exam_student.assigned_at,
+                        "exam_status": exam_student.status,
+                        "created_at": exam.created_at
+                    })
+            
+            return exams
+    
+    return []
+
+@app.get("/api/v1/students/{student_id}/exams/{exam_id}")
+async def get_student_exam_details(student_id: int, exam_id: str):
+    """Récupérer les détails d'un examen spécifique pour un étudiant"""
+    if DB_OK:
+        with SessionLocal() as db:
+            # Vérifier que l'examen est assigné à l'étudiant
+            exam_student = db.query(ExamStudentDB).filter(
+                ExamStudentDB.student_id == student_id,
+                ExamStudentDB.exam_id == exam_id
+            ).first()
+            
+            if not exam_student:
+                raise HTTPException(status_code=404, detail="Examen non assigné à cet étudiant")
+            
+            exam = db.query(ExamDB).filter(ExamDB.id == exam_id).first()
+            if not exam:
+                raise HTTPException(status_code=404, detail="Examen non trouvé")
+            
+            return {
+                "id": exam.id,
+                "title": exam.title,
+                "description": exam.description,
+                "duration_minutes": exam.duration_minutes,
+                "instructions": exam.instructions,
+                "status": exam.status,
+                "pdf_path": exam.pdf_path,
+                "assigned_at": exam_student.assigned_at,
+                "exam_status": exam_student.status,
+                "created_at": exam.created_at
+            }
+    
+    raise HTTPException(status_code=404, detail="Examen non trouvé")
 
 # --- Endpoints Utilisateurs ---
 @app.get("/api/v1/users")
