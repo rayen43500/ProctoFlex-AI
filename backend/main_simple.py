@@ -174,20 +174,112 @@ async def get_sessions():
 
 @app.post("/api/v1/auth/login")
 async def login(credentials: dict):
-    """Authentification (simulée)"""
+    """Authentification avec base de données PostgreSQL"""
     username_or_email = credentials.get("username", "")
     password = credentials.get("password", "")
 
-    # Chercher par username direct
-    user = USERS.get(username_or_email)
-    # Ou par email
-    if not user:
-        key = EMAIL_INDEX.get(username_or_email)
-        if key:
-            user = USERS.get(key)
+    if DB_OK:
+        with SessionLocal() as db:
+            # Chercher par email ou username
+            user = db.query(UserDB).filter(
+                (UserDB.email == username_or_email) | (UserDB.username == username_or_email)
+            ).first()
+            
+            if user and verify_password(password, user.hashed_password):
+                token = f"fake_token_{user.username}_123"
+                return {
+                    "access_token": token,
+                    "token_type": "bearer",
+                    "user": {
+                        "id": user.id,
+                        "username": user.username,
+                        "email": user.email,
+                        "full_name": user.full_name,
+                        "role": user.role,
+                    }
+                }
+    else:
+        # Fallback sur les données en mémoire
+        user = USERS.get(username_or_email)
+        if not user:
+            key = EMAIL_INDEX.get(username_or_email)
+            if key:
+                user = USERS.get(key)
 
-    # Vérification mot de passe (haché ou clair selon env)
-    if user and verify_password(password, user.get("password", "")):
+        if user and verify_password(password, user.get("password", "")):
+            token = f"fake_token_{user['username']}_123"
+            return {
+                "access_token": token,
+                "token_type": "bearer",
+                "user": {
+                    "id": 999 if user["username"] not in ("admin", "student") else (1 if user["username"]=="admin" else 2),
+                    "username": user["username"],
+                    "email": user["email"],
+                    "full_name": user.get("full_name", user["username"]),
+                    "role": user.get("role", "student"),
+                }
+            }
+
+    raise HTTPException(status_code=401, detail="Identifiants invalides")
+
+# Login avec visage (simulation)
+@app.post("/api/v1/auth/login-with-face")
+async def login_with_face(payload: dict):
+    """
+    Authentification par visage avec base de données PostgreSQL.
+    """
+    face_image_base64 = payload.get("face_image_base64")
+    if not face_image_base64:
+        raise HTTPException(status_code=400, detail="face_image_base64 requis")
+
+    # Si identifiant fourni (email ou username), accepter si l'utilisateur existe
+    identifier = payload.get("username") or payload.get("email")
+    user = None
+    
+    if DB_OK:
+        with SessionLocal() as db:
+            if identifier:
+                user = db.query(UserDB).filter(
+                    (UserDB.email == identifier) | (UserDB.username == identifier)
+                ).first()
+            
+            # Sinon, tenter par empreinte exacte (simulation stricte)
+            if not user:
+                username = FACE_INDEX.get(face_image_base64)
+                if username:
+                    user = db.query(UserDB).filter(UserDB.username == username).first()
+    else:
+        # Fallback sur les données en mémoire
+        if identifier:
+            user = USERS.get(identifier)
+            if not user:
+                key = EMAIL_INDEX.get(identifier)
+                if key:
+                    user = USERS.get(key)
+
+        # Sinon, tenter par empreinte exacte (simulation stricte)
+        if not user:
+            username = FACE_INDEX.get(face_image_base64)
+            if username:
+                user = USERS.get(username)
+
+    if not user:
+        raise HTTPException(status_code=401, detail="Visage non reconnu")
+
+    if DB_OK:
+        token = f"fake_token_{user.username}_123"
+        return {
+            "access_token": token,
+            "token_type": "bearer",
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "full_name": user.full_name,
+                "role": user.role,
+            }
+        }
+    else:
         token = f"fake_token_{user['username']}_123"
         return {
             "access_token": token,
@@ -201,60 +293,11 @@ async def login(credentials: dict):
             }
         }
 
-    raise HTTPException(status_code=401, detail="Identifiants invalides")
-
-# Login avec visage (simulation)
-@app.post("/api/v1/auth/login-with-face")
-async def login_with_face(payload: dict):
-    """
-    Authentification par visage (simulée):
-    - Si `face_image_base64` correspond à une empreinte déjà enregistrée, on connecte l'utilisateur.
-    - Sinon, 401.
-    """
-    face_image_base64 = payload.get("face_image_base64")
-    if not face_image_base64:
-        raise HTTPException(status_code=400, detail="face_image_base64 requis")
-
-    # Si identifiant fourni (email ou username), accepter si l'utilisateur existe (simulation tolérante)
-    identifier = payload.get("username") or payload.get("email")
-    user = None
-    if identifier:
-        user = USERS.get(identifier)
-        if not user:
-            key = EMAIL_INDEX.get(identifier)
-            if key:
-                user = USERS.get(key)
-
-    # Sinon, tenter par empreinte exacte (simulation stricte)
-    if not user:
-        username = FACE_INDEX.get(face_image_base64)
-        if username:
-            user = USERS.get(username)
-
-    if not user:
-        raise HTTPException(status_code=401, detail="Visage non reconnu (simulation)")
-    if not user:
-        raise HTTPException(status_code=401, detail="Utilisateur introuvable")
-
-    token = f"fake_token_{user['username']}_123"
-    return {
-        "access_token": token,
-        "token_type": "bearer",
-        "user": {
-            "id": 999 if user["username"] not in ("admin", "student") else (1 if user["username"]=="admin" else 2),
-            "username": user["username"],
-            "email": user["email"],
-            "full_name": user.get("full_name", user["username"]),
-            "role": user.get("role", "student"),
-        }
-    }
-
 # Inscription (simulée) avec vérification faciale optionnelle
 @app.post("/api/v1/auth/register-with-face")
 async def register_with_face(payload: dict):
     """
-    Crée un compte utilisateur (simulation). Si `face_image_base64` est fourni,
-    on simule la détection d'un visage et on accepte.
+    Crée un compte utilisateur avec base de données PostgreSQL.
     """
     email = payload.get("email")
     username = payload.get("username")
@@ -270,30 +313,69 @@ async def register_with_face(payload: dict):
     if face_image_base64 is not None and len(str(face_image_base64)) < 10:
         raise HTTPException(status_code=400, detail="Aucun visage détecté (simulation)")
 
-    # Sauvegarde en mémoire (simulation)
-    USERS[username] = {
-        "username": username,
-        "email": email,
-        "full_name": full_name,
-        "password": hash_password(password),
-        "role": role,
-    }
-    EMAIL_INDEX[email] = username
-    if face_image_base64:
-        FACE_INDEX[face_image_base64] = username
-
-    # Retour d'un token factice
-    return {
-        "access_token": "fake_token_registered_123",
-        "token_type": "bearer",
-        "user": {
-            "id": 999,
+    if DB_OK:
+        with SessionLocal() as db:
+            # Vérifier si l'utilisateur existe déjà
+            existing_user = db.query(UserDB).filter(
+                (UserDB.email == email) | (UserDB.username == username)
+            ).first()
+            
+            if existing_user:
+                raise HTTPException(status_code=400, detail="Utilisateur déjà existant")
+            
+            # Créer le nouvel utilisateur
+            new_user = UserDB(
+                email=email,
+                username=username,
+                full_name=full_name,
+                hashed_password=hash_password(password),
+                role=role,
+                is_active=True
+            )
+            
+            db.add(new_user)
+            db.commit()
+            db.refresh(new_user)
+            
+            # Sauvegarder l'empreinte faciale en mémoire (simulation)
+            if face_image_base64:
+                FACE_INDEX[face_image_base64] = username
+            
+            return {
+                "access_token": f"fake_token_{username}_123",
+                "token_type": "bearer",
+                "user": {
+                    "id": new_user.id,
+                    "username": new_user.username,
+                    "email": new_user.email,
+                    "full_name": new_user.full_name,
+                    "role": new_user.role
+                }
+            }
+    else:
+        # Fallback sur les données en mémoire
+        USERS[username] = {
             "username": username,
             "email": email,
             "full_name": full_name,
-            "role": role
+            "password": hash_password(password),
+            "role": role,
         }
-    }
+        EMAIL_INDEX[email] = username
+        if face_image_base64:
+            FACE_INDEX[face_image_base64] = username
+
+        return {
+            "access_token": "fake_token_registered_123",
+            "token_type": "bearer",
+            "user": {
+                "id": 999,
+                "username": username,
+                "email": email,
+                "full_name": full_name,
+                "role": role
+            }
+        }
 
 # Routes de surveillance (simulées)
 @app.post("/api/v1/surveillance/sessions/{session_id}/start")
