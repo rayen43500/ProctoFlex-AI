@@ -7,12 +7,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db
+from app.core.database import get_db, User
 from app.core.security import (
     authenticate_user, 
     create_access_token, 
     get_current_user,
-    get_password_hash
+    get_password_hash,
+    verify_password
 )
 from app.core.config import settings
 from app.models.auth import Token, UserCreate, User
@@ -23,20 +24,37 @@ from app.crud.user import create_user, get_user_by_email
 
 router = APIRouter()
 
+class LoginRequest(BaseModel):
+    """Modèle pour la requête de connexion"""
+    username: str  # Peut être un email ou un nom d'utilisateur
+    password: str
+
 @router.post("/login", response_model=Token)
 async def login(
-    form_data: OAuth2PasswordRequestForm = Depends(),
+    login_data: LoginRequest,
     db: Session = Depends(get_db)
 ):
     """
     Authentification utilisateur et génération de token JWT
+    Accepte l'email ou le nom d'utilisateur
     """
-    # Authentification de l'utilisateur
-    user = authenticate_user(db, form_data.username, form_data.password)
+    # Essayer d'abord avec le nom d'utilisateur
+    user = authenticate_user(db, login_data.username, login_data.password)
+    
+    # Si ça ne marche pas, essayer avec l'email
+    if not user:
+        # Vérifier si c'est un email
+        if "@" in login_data.username:
+            user = db.query(User).filter(User.email == login_data.username).first()
+            if user and verify_password(login_data.password, user.hashed_password):
+                pass  # Utilisateur trouvé avec l'email
+            else:
+                user = None
+    
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Nom d'utilisateur ou mot de passe incorrect",
+            detail="Email/nom d'utilisateur ou mot de passe incorrect",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
