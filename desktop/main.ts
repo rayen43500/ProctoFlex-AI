@@ -67,8 +67,11 @@ async function createWindow(): Promise<void> {
       sandbox: false
     },
     icon: join(__dirname, 'assets/icon.png'),
-    titleBarStyle: 'default',
-    show: false
+    titleBarStyle: 'hiddenInset',
+    frame: false,
+    show: false,
+    transparent: false,
+    backgroundColor: '#f8fafc'
   });
 
   // Charger l'application
@@ -128,6 +131,31 @@ async function createWindow(): Promise<void> {
 }
 
 // Gestionnaires IPC pour la communication avec le renderer
+ipcMain.handle('close-window', () => {
+  const mainWindow = BrowserWindow.getFocusedWindow();
+  if (mainWindow) {
+    mainWindow.close();
+  }
+});
+
+ipcMain.handle('minimize-window', () => {
+  const mainWindow = BrowserWindow.getFocusedWindow();
+  if (mainWindow) {
+    mainWindow.minimize();
+  }
+});
+
+ipcMain.handle('maximize-window', () => {
+  const mainWindow = BrowserWindow.getFocusedWindow();
+  if (mainWindow) {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow.maximize();
+    }
+  }
+});
+
 ipcMain.handle('get-running-processes', async () => {
   try {
     if (process.platform === 'win32') {

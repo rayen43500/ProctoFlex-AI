@@ -20,6 +20,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('student-warning', listener);
     return () => ipcRenderer.removeListener('student-warning', listener);
   },
+
+  // Contrôles de fenêtre
+  closeWindow: () => ipcRenderer.invoke('close-window'),
+  minimizeWindow: () => ipcRenderer.invoke('minimize-window'),
+  maximizeWindow: () => ipcRenderer.invoke('maximize-window'),
   
   // Vérifier si l'API est disponible
   isAvailable: true
