@@ -25,6 +25,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   closeWindow: () => ipcRenderer.invoke('close-window'),
   minimizeWindow: () => ipcRenderer.invoke('minimize-window'),
   maximizeWindow: () => ipcRenderer.invoke('maximize-window'),
+  hideWindow: () => ipcRenderer.invoke('hide-window'),
+  showWindow: () => ipcRenderer.invoke('show-window'),
   
   // Vérifier si l'API est disponible
   isAvailable: true

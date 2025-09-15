@@ -695,6 +695,41 @@ async def get_exam_material(exam_id: str):
         raise HTTPException(status_code=404, detail="Fichier introuvable")
     return FileResponse(path, media_type="application/pdf", filename=filename)
 
+# --- Démarrer / Soumettre un examen (compatibilité App Desktop) ---
+@app.post("/api/v1/exams/{exam_id}/start")
+async def start_exam_simple(exam_id: int, student_id: int):
+    """Démarre un examen pour un étudiant: met exam_students.status à 'started'"""
+    if not DB_OK:
+        raise HTTPException(status_code=503, detail="Base de données indisponible")
+    with SessionLocal() as db:
+        exam_student = db.query(ExamStudentDB).filter(
+            ExamStudentDB.exam_id == exam_id,
+            ExamStudentDB.student_id == student_id
+        ).first()
+        if not exam_student:
+            raise HTTPException(status_code=404, detail="Examen non assigné à cet étudiant")
+        if exam_student.status == "completed":
+            return {"message": "Examen déjà soumis", "exam_id": exam_id, "status": exam_student.status}
+        exam_student.status = "started"
+        db.commit()
+        return {"message": "Examen démarré", "exam_id": exam_id, "status": exam_student.status}
+
+@app.post("/api/v1/exams/{exam_id}/submit")
+async def submit_exam_simple(exam_id: int, student_id: int, answers: dict | None = None):
+    """Soumet un examen pour un étudiant: met exam_students.status à 'completed'"""
+    if not DB_OK:
+        raise HTTPException(status_code=503, detail="Base de données indisponible")
+    with SessionLocal() as db:
+        exam_student = db.query(ExamStudentDB).filter(
+            ExamStudentDB.exam_id == exam_id,
+            ExamStudentDB.student_id == student_id
+        ).first()
+        if not exam_student:
+            raise HTTPException(status_code=404, detail="Examen non assigné à cet étudiant")
+        exam_student.status = "completed"
+        db.commit()
+        return {"message": "Examen soumis", "exam_id": exam_id, "status": exam_student.status}
+
 # --- Endpoints pour les étudiants ---
 @app.get("/api/v1/students/{student_id}/exams")
 async def get_student_exams(student_id: int):

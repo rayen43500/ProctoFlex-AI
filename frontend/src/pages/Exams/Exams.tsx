@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Edit, Trash2, Eye } from 'lucide-react';
+import { Plus, Edit, Trash2 } from 'lucide-react';
 import { API_BASE, getAuthHeaders } from '@/contexts/AuthContext';
 
 type Exam = {
@@ -41,7 +41,7 @@ const Exams: React.FC = () => {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [pdfUploadStatus, setPdfUploadStatus] = useState<string | null>(null);
+  // Upload PDF désactivé: état supprimé
 
   // Students management
   const [students, setStudents] = useState<User[]>([]);
@@ -119,7 +119,7 @@ const Exams: React.FC = () => {
     setInstructions('');
     setPdfFile(null);
     setFormError(null);
-    setPdfUploadStatus(null);
+  // upload PDF désactivé
     setSelectedStudents([]);
     setShowForm(true);
   }
@@ -133,36 +133,14 @@ const Exams: React.FC = () => {
     setInstructions(exam.instructions || '');
     setPdfFile(null);
     setFormError(null);
-    setPdfUploadStatus(null);
+  // upload PDF désactivé
     setShowForm(true);
   }
 
-  async function uploadPdfIfAny(examId: string) {
-    if (!pdfFile) return;
-    setPdfUploadStatus('Upload du PDF en cours...');
-    try {
-      const form = new FormData();
-      form.append('file', pdfFile);
-      const response = await fetch(`${API_BASE}/exams/${examId}/material`, {
-        method: 'POST',
-        headers: { ...getAuthHeaders() },
-        body: form
-      });
-      
-      if (!response.ok) {
-        console.error('Erreur lors de l\'upload du PDF:', response.statusText);
-        setPdfUploadStatus('Erreur lors de l\'upload du PDF');
-        throw new Error('Échec de l\'upload du PDF');
-      }
-      
-      const result = await response.json();
-      console.log('PDF uploadé avec succès:', result);
-      setPdfUploadStatus('PDF uploadé avec succès');
-    } catch (error) {
-      console.error('Erreur upload PDF:', error);
-      setPdfUploadStatus('Erreur lors de l\'upload du PDF');
-      // Ne pas bloquer la création de l'examen si l'upload PDF échoue
-    }
+  // Désactivé: Upload PDF côté frontend (annulé sur demande)
+  async function uploadPdfIfAny(_examId: string) {
+    // Ne rien faire: l'upload de PDF est désactivé côté frontend
+    return;
   }
 
   async function submitForm(e: React.FormEvent) {
@@ -199,7 +177,7 @@ const Exams: React.FC = () => {
           selected_students: selectedStudents,
           instructor_id: 1 // ID de l'instructeur actuel
         };
-        
+
         const res = await fetch(`${API_BASE}/exams`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
@@ -208,7 +186,7 @@ const Exams: React.FC = () => {
         if (!res.ok) throw new Error('Échec de la création');
         const created = await res.json().catch(() => null);
         if (created && created.id) {
-          // Upload du PDF si fourni
+          // Upload du PDF si fourni (désactivé côté frontend)
           if (pdfFile) {
             await uploadPdfIfAny(created.id);
           }
@@ -306,24 +284,10 @@ const Exams: React.FC = () => {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Document PDF (optionnel)</label>
-                <input type="file" accept="application/pdf" onChange={(e) => setPdfFile(e.target.files?.[0] || null)} />
-                {pdfFile && (
-                  <div className="mt-1 text-sm text-gray-600">
-                    Fichier sélectionné: {pdfFile.name}
-                  </div>
-                )}
-                {pdfUploadStatus && (
-                  <div className={`mt-1 text-sm p-2 rounded ${
-                    pdfUploadStatus.includes('succès') 
-                      ? 'bg-green-50 text-green-700' 
-                      : pdfUploadStatus.includes('Erreur')
-                      ? 'bg-red-50 text-red-700'
-                      : 'bg-blue-50 text-blue-700'
-                  }`}>
-                    {pdfUploadStatus}
-                  </div>
-                )}
+                <label className="block text-sm font-medium text-gray-700">Document PDF</label>
+                <div className="mt-1 text-sm p-3 rounded border bg-yellow-50 text-yellow-800">
+                  L'upload de PDF est désactivé côté interface pour le moment.
+                </div>
               </div>
 
               {/* Sélection des étudiants */}

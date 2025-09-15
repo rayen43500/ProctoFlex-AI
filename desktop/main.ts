@@ -6,7 +6,7 @@ const { promisify } = require('util');
 const fs = require('fs');
 
 // Destructuration des modules Electron
-const { app, BrowserWindow, ipcMain, shell } = electron;
+const { app, BrowserWindow, ipcMain, shell, Tray, Menu, nativeImage } = electron;
 const { join } = path;
 const { existsSync } = fs;
 
@@ -33,7 +33,7 @@ async function checkViteServer(): Promise<boolean> {
 }
 
 // Configuration de sécurité
-app.on('web-contents-created', (event: any, contents: any) => {
+app.on('web-contents-created', (_event: any, contents: any) => {
   // Bloquer la navigation vers des sites externes
   contents.on('will-navigate', (event: any, navigationUrl: string) => {
     const parsedUrl = new URL(navigationUrl);
@@ -50,7 +50,19 @@ app.on('web-contents-created', (event: any, contents: any) => {
 });
 
 // Créer la fenêtre principale
+let mainWindowRef: Electron.BrowserWindow | null = null;
+let tray: Electron.Tray | null = null;
+
 async function createWindow(): Promise<void> {
+  // Build a safe icon if available
+  let windowIcon: any = undefined;
+  try {
+    const possibleIconPath = join(__dirname, 'assets/icon.png');
+    if (existsSync(possibleIconPath)) {
+      windowIcon = nativeImage.createFromPath(possibleIconPath);
+    }
+  } catch {}
+
   const mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -66,7 +78,7 @@ async function createWindow(): Promise<void> {
       enableRemoteModule: false,
       sandbox: false
     },
-    icon: join(__dirname, 'assets/icon.png'),
+  icon: windowIcon || undefined,
     titleBarStyle: 'hiddenInset',
     frame: false,
     show: false,
@@ -123,14 +135,79 @@ async function createWindow(): Promise<void> {
   });
 
   // Gérer la fermeture de la fenêtre
-  mainWindow.on('closed', () => {
-    // Fermer l'application
-    stopProcessMonitor();
-    app.quit();
+  mainWindow.on('close', (e: Electron.Event) => {
+    // Si on a un tray, minimiser en zone de notification au lieu de quitter
+    if (tray && !app.isQuiting) {
+      e.preventDefault();
+      mainWindow.hide();
+      return;
+    }
   });
+
+  mainWindow.on('closed', () => {
+    stopProcessMonitor();
+    mainWindowRef = null;
+  });
+
+  mainWindowRef = mainWindow;
+
+  // Créer le tray si pas déjà créé
+  if (!tray) {
+    try {
+      const iconPath = join(__dirname, 'assets/icon.png');
+      let trayIcon: Electron.NativeImage | string = '';
+      if (existsSync(iconPath)) {
+        trayIcon = nativeImage.createFromPath(iconPath);
+      } else {
+        // 1x1 transparent PNG
+        const transparentPixel =
+          'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=';
+        trayIcon = nativeImage.createFromDataURL(transparentPixel);
+      }
+      tray = new Tray(trayIcon);
+      const contextMenu = Menu.buildFromTemplate([
+        {
+          label: 'Afficher',
+          click: () => {
+            if (mainWindowRef) {
+              mainWindowRef.show();
+              mainWindowRef.focus();
+            }
+          }
+        },
+        {
+          label: 'Masquer',
+          click: () => {
+            if (mainWindowRef) mainWindowRef.hide();
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Quitter',
+          click: () => {
+            app.isQuiting = true as any;
+            stopProcessMonitor();
+            app.quit();
+          }
+        }
+      ]);
+  tray!.setToolTip('ProctoFlex AI');
+  tray!.setContextMenu(contextMenu);
+  tray!.on('double-click', () => {
+        if (mainWindowRef) {
+          mainWindowRef.show();
+          mainWindowRef.focus();
+        }
+      });
+    } catch (e) {
+      console.error('Erreur création tray:', e);
+    }
+  }
 }
 
 // Gestionnaires IPC pour la communication avec le renderer
+let studentIdentity: any = null;
+
 ipcMain.handle('close-window', () => {
   const mainWindow = BrowserWindow.getFocusedWindow();
   if (mainWindow) {
@@ -153,6 +230,28 @@ ipcMain.handle('maximize-window', () => {
     } else {
       mainWindow.maximize();
     }
+  }
+});
+
+ipcMain.handle('hide-window', () => {
+  const win = BrowserWindow.getFocusedWindow() || mainWindowRef;
+  if (win) win.hide();
+});
+
+ipcMain.handle('show-window', () => {
+  const win = mainWindowRef;
+  if (win) {
+    win.show();
+    win.focus();
+  }
+});
+
+ipcMain.handle('set-student-identity', (_event: any, identity: any) => {
+  try {
+    studentIdentity = identity || null;
+    return true;
+  } catch (e) {
+    return false;
   }
 });
 
@@ -185,10 +284,11 @@ ipcMain.handle('capture-screen', async () => {
   }
 });
 
-ipcMain.handle('log-security-alert', async (event: any, alertData: any) => {
+ipcMain.handle('log-security-alert', async (_event: any, alertData: any) => {
   try {
     console.log('Alerte de sécurité:', alertData);
-    // Ici, vous pouvez implémenter la journalisation locale
+    // Envoi côté serveur avec identité si disponible
+    await sendAlert({ ...alertData });
     return true;
   } catch (error) {
     console.error('Erreur lors de la journalisation:', error);
@@ -225,9 +325,9 @@ async function listProcessesLower(): Promise<string> {
       // stdout lines like: "chrome.exe","1234","Console","1","120,000 K"
       const names = stdout
         .split(/\r?\n/)
-        .map(l => l.trim())
-        .filter(l => l.length > 0)
-        .map(l => {
+        .map((l: string) => l.trim())
+        .filter((l: string) => l.length > 0)
+        .map((l: string) => {
           const m = l.match(/^"([^"]+)"/);
           return m ? m[1].toLowerCase() : '';
         })
@@ -261,7 +361,11 @@ async function sendAlert(alert: any) {
     await fetch('http://localhost:8000/api/v1/alerts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...alert, timestamp: new Date().toISOString() })
+      body: JSON.stringify({
+        ...alert,
+        timestamp: new Date().toISOString(),
+        student: studentIdentity || undefined
+      })
     });
   } catch (e) {
     console.error('Erreur envoi alerte:', e);
@@ -281,7 +385,7 @@ async function killProcessWindows(procNameLower: string) {
 async function tickProcessMonitor(mainWindow: Electron.BrowserWindow | null) {
   const cfg = await fetchLockConfig();
   const effective = cfg || lastLockConfig;
-  const allowed: string[] = (effective.allowed_apps || []).map((s: string) => s.toLowerCase());
+  // allowed list currently unused in enforcement; only forbidden list is checked
   const forbidden: string[] = (effective.forbidden_apps || []).map((s: string) => s.toLowerCase());
   const autoKill: boolean = !!(effective.policy && effective.policy.auto_kill);
   const repeatThreshold: number = Math.max(1, Number(effective.policy?.repeat_threshold || 2));
@@ -347,6 +451,6 @@ process.on('uncaughtException', (error) => {
   console.error('Erreur non capturée:', error);
 });
 
-process.on('unhandledRejection', (reason, promise) => {
+process.on('unhandledRejection', (reason, _promise) => {
   console.error('Promesse rejetée non gérée:', reason);
 });
