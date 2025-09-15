@@ -59,7 +59,7 @@ services:
       - proctoflex-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys;\ntry:\n  urllib.request.urlopen('http://localhost:8000/health', timeout=5)\n  sys.exit(0)\nexcept Exception:\n  sys.exit(1)\""]
       interval: 30s
       timeout: 10s
       retries: 3
