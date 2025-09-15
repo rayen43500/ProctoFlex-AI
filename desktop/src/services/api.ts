@@ -65,7 +65,9 @@ class ApiService {
     name: string;
     email: string;
     password: string;
-    face_encoding?: string;
+    username?: string;
+    full_name?: string;
+    face_image_base64?: string;
   }): Promise<{ access_token: string; token_type: string }> {
     const response = await fetch(`${API_BASE_URL}/auth/register-with-face`, {
       method: 'POST',
