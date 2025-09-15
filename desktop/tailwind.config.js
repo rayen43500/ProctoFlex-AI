@@ -3,6 +3,7 @@ export default {
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
+    "./dist/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
     extend: {
@@ -78,6 +79,9 @@ export default {
         'spin': 'spin 1s linear infinite',
         'bounce': 'bounce 1s infinite',
         'ping': 'ping 1s cubic-bezier(0, 0, 0.2, 1) infinite',
+        'electron-fade-in': 'electron-fade-in 0.3s ease-out',
+        'electron-slide-in': 'electron-slide-in 0.3s ease-out',
+        'electron-scale-in': 'electron-scale-in 0.3s ease-out',
       },
       keyframes: {
         fadeIn: {
@@ -102,6 +106,18 @@ export default {
         },
         ping: {
           '75%, 100%': { transform: 'scale(2)', opacity: '0' },
+        },
+        'electron-fade-in': {
+          '0%': { opacity: '0', transform: 'translateY(10px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        'electron-slide-in': {
+          '0%': { opacity: '0', transform: 'translateX(-20px)' },
+          '100%': { opacity: '1', transform: 'translateX(0)' },
+        },
+        'electron-scale-in': {
+          '0%': { opacity: '0', transform: 'scale(0.95)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
         },
       },
       transitionProperty: {
