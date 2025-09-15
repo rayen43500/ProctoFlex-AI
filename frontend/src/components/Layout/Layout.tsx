@@ -84,7 +84,7 @@ const Layout: React.FC = () => {
       </div>
 
       {/* Main content */}
-      <div className="pl-64">
+      <div className="pl-64 min-h-screen">
         {/* Header */}
         <header className="bg-white shadow-sm border-b border-gray-200">
           <div className="flex h-16 items-center justify-between px-6">
@@ -102,8 +102,10 @@ const Layout: React.FC = () => {
         </header>
 
         {/* Page content */}
-        <main className="p-6">
-          <Outlet />
+        <main className="p-0">
+          <div className="px-6 py-6">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

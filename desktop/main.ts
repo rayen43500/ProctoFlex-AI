@@ -81,6 +81,7 @@ async function createWindow(): Promise<void> {
   icon: windowIcon || undefined,
     titleBarStyle: 'hiddenInset',
     frame: false,
+    autoHideMenuBar: true,
     show: false,
     transparent: false,
     backgroundColor: '#f8fafc'
@@ -129,6 +130,7 @@ async function createWindow(): Promise<void> {
 
   // Afficher la fenêtre quand elle est prête
   mainWindow.once('ready-to-show', () => {
+    try { mainWindow.setMenuBarVisibility(false); } catch {}
     mainWindow.show();
     // Démarrer la surveillance des processus
     startProcessMonitor(mainWindow);

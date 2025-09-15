@@ -25,35 +25,17 @@ const Dashboard: React.FC = () => {
   const [isLoadingAlerts, setIsLoadingAlerts] = useState(false);
   const [studentFilter, setStudentFilter] = useState('');
 
+  const [activeUsers, setActiveUsers] = useState<number>(0);
+  const [examsInProgress, setExamsInProgress] = useState<number>(0);
+  const [activeSessions, setActiveSessions] = useState<number>(0);
+  const [recentSessions, setRecentSessions] = useState<any[]>([]);
+  const [alertsByStudent, setAlertsByStudent] = useState<Array<{ student: string; count: number }>>([]);
+
   const stats = [
-    {
-      name: 'Utilisateurs Actifs',
-      value: '156',
-      change: '+12%',
-      changeType: 'positive',
-      icon: Users,
-    },
-    {
-      name: 'Examens en Cours',
-      value: '23',
-      change: '+5%',
-      changeType: 'positive',
-      icon: FileText,
-    },
-    {
-      name: 'Sessions Actives',
-      value: '89',
-      change: '+18%',
-      changeType: 'positive',
-      icon: Monitor,
-    },
-    {
-      name: 'Alertes',
-      value: String(alerts.length),
-      change: alerts.length > 0 ? '+1' : '0',
-      changeType: alerts.length > 0 ? 'negative' : 'positive',
-      icon: AlertTriangle,
-    },
+    { name: 'Utilisateurs Actifs', value: String(activeUsers), icon: Users },
+    { name: 'Examens en Cours', value: String(examsInProgress), icon: FileText },
+    { name: 'Sessions Actives', value: String(activeSessions), icon: Monitor },
+    { name: 'Alertes', value: String(alerts.length), icon: AlertTriangle },
   ];
 
   useEffect(() => {
@@ -71,7 +53,14 @@ const Dashboard: React.FC = () => {
         if (!res.ok) return;
         const data = await res.json();
         if (alive && Array.isArray(data)) {
-          const sorted = data
+          // Dédupliquer les alertes par (timestamp,type,process,student)
+          const uniqueMap = new Map<string, AlertItem>();
+          for (const a of data) {
+            const k = [a.timestamp || '', a.type || '', a.process || '', a.student || ''].join('|');
+            if (!uniqueMap.has(k)) uniqueMap.set(k, a);
+          }
+          const deduped = Array.from(uniqueMap.values());
+          const sorted = deduped
             .slice()
             .sort((a: AlertItem, b: AlertItem) => {
               const ta = a.timestamp ? Date.parse(a.timestamp) : 0;
@@ -79,6 +68,19 @@ const Dashboard: React.FC = () => {
               return tb - ta;
             });
           setAlerts(sorted);
+
+          // Agréger par étudiant (ignorer vides)
+          const counts = new Map<string, number>();
+          for (const a of sorted) {
+            const s = (a.student || '').toString().trim();
+            if (!s) continue;
+            counts.set(s, (counts.get(s) || 0) + 1);
+          }
+          const agg = Array.from(counts.entries())
+            .map(([student, count]) => ({ student, count }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 24);
+          setAlertsByStudent(agg);
         }
       } catch {
         // ignore
@@ -92,11 +94,57 @@ const Dashboard: React.FC = () => {
     return () => { alive = false; clearInterval(interval); };
   }, [studentFilter]);
 
-  const recentSessions = [
-    { id: 1, student: 'Ahmed Ben Ali', exam: 'Programmation Java', status: 'active', duration: '1h 23m', alerts: 0 },
-    { id: 2, student: 'Fatma Mansouri', exam: 'Mathématiques Avancées', status: 'completed', duration: '2h 15m', alerts: 1 },
-    { id: 3, student: 'Mohamed Karray', exam: 'Base de Données', status: 'active', duration: '45m', alerts: 0 },
-  ];
+  // Charger stats: utilisateurs, examens, sessions
+  useEffect(() => {
+    let alive = true;
+    let interval: any;
+
+    async function loadStats() {
+      try {
+        // Users stats
+        const usersRes = await fetch(`${API_BASE}/users/stats`, { headers: getAuthHeaders() });
+        if (usersRes.ok) {
+          const u = await usersRes.json();
+          if (alive) setActiveUsers(Number(u.active_today ?? 0));
+        }
+
+        // Exams
+        const examsRes = await fetch(`${API_BASE}/exams`, { headers: getAuthHeaders() });
+        if (examsRes.ok) {
+          const ex = await examsRes.json();
+          if (Array.isArray(ex) && alive) {
+            const inProgress = ex.filter((e: any) => String(e.status).toLowerCase() === 'started').length;
+            setExamsInProgress(inProgress);
+          }
+        }
+
+        // Sessions
+        const sessRes = await fetch(`${API_BASE}/sessions`, { headers: getAuthHeaders() });
+        if (sessRes.ok) {
+          const s = await sessRes.json();
+          if (Array.isArray(s) && alive) {
+            setActiveSessions(s.filter((it: any) => String(it.status).toLowerCase() === 'active').length);
+            // Mapper sessions récentes pour affichage
+            const mapped = s.slice(0, 9).map((it: any, idx: number) => ({
+              id: it.id ?? idx,
+              student: it.student_name || it.student_id || 'Étudiant',
+              exam: it.exam_title || `Examen ${it.exam_id ?? ''}`,
+              status: it.status ?? 'active',
+              duration: it.duration || '—',
+              alerts: Number(it.alerts_count ?? 0),
+            }));
+            setRecentSessions(mapped);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    loadStats();
+    interval = setInterval(loadStats, 10000);
+    return () => { alive = false; clearInterval(interval); };
+  }, []);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -125,7 +173,7 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-h-[calc(100vh-4rem)]">
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((item) => (
@@ -154,11 +202,36 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Sessions récentes (placeholder) */}
+      {/* Alertes par étudiant */}
+      <div className="bg-white rounded-lg shadow">
+        <div className="px-6 py-4 border-b flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">Alertes par étudiant</h3>
+          <span className="text-xs text-gray-500">{alertsByStudent.reduce((a, b) => a + b.count, 0)} total</span>
+        </div>
+        <div className="p-4 flex flex-wrap gap-2">
+          {alertsByStudent.length === 0 ? (
+            <div className="text-sm text-gray-500 px-2">Aucune alerte</div>
+          ) : alertsByStudent.map(({ student, count }) => (
+            <button
+              key={student}
+              onClick={() => setStudentFilter(student)}
+              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm hover:shadow transition ${studentFilter === student ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-gray-200 text-gray-700'}`}
+              title={`Voir les alertes de ${student}`}
+            >
+              <span className="font-medium">{student}</span>
+              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-gray-700 text-xs">{count}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Sessions récentes */}
       <div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b"><h3 className="text-lg font-semibold text-gray-900">Sessions Récentes</h3></div>
         <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-          {recentSessions.map((s) => (
+          {recentSessions.length === 0 ? (
+            <div className="text-sm text-gray-500">Aucune session récente</div>
+          ) : recentSessions.map((s) => (
             <div key={s.id} className="border rounded p-4">
               <div className="flex items-center justify-between">
                 <div className={`inline-flex items-center px-2 py-1 rounded text-xs ${getStatusColor(s.status)}`}>{getStatusIcon(s.status)}<span className="ml-1 capitalize">{s.status}</span></div>
