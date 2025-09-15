@@ -172,6 +172,30 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  // Regrouper les alertes similaires (type + process + student)
+  const groupedAlerts = (() => {
+    type Grouped = { key: string; type?: string; process?: string; student?: string; count: number; lastTimestamp?: string; severity?: string; message?: string };
+    const map = new Map<string, Grouped>();
+    for (const a of alerts) {
+      const key = [a.type || '', a.process || '', a.student || ''].join('|');
+      const prev = map.get(key);
+      if (!prev) {
+        map.set(key, { key, type: a.type, process: a.process, student: a.student, count: 1, lastTimestamp: a.timestamp, severity: a.severity, message: a.message });
+      } else {
+        prev.count += 1;
+        // Mémoriser le timestamp le plus récent
+        const ta = a.timestamp ? Date.parse(a.timestamp) : 0;
+        const tp = prev.lastTimestamp ? Date.parse(prev.lastTimestamp) : 0;
+        if (ta > tp) {
+          prev.lastTimestamp = a.timestamp;
+          prev.severity = a.severity || prev.severity;
+          prev.message = a.message || prev.message;
+        }
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => b.count - a.count).slice(0, 100);
+  })();
+
   return (
     <div className="space-y-6 min-h-[calc(100vh-4rem)]">
       {/* Stats */}
@@ -245,26 +269,27 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Timeline d'alertes temps réel */}
+      {/* Timeline d'alertes temps réel (regroupée) */}
       <div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b flex items-center justify-between">
           <h3 className="text-lg font-semibold text-gray-900">Timeline d’Alertes (temps réel)</h3>
           {isLoadingAlerts && <span className="text-xs text-gray-500">Mise à jour...</span>}
         </div>
         <div className="p-6">
-          {alerts.length === 0 ? (
+          {groupedAlerts.length === 0 ? (
             <div className="text-sm text-gray-500">Aucune alerte</div>
           ) : (
             <ul className="space-y-3">
-              {alerts.slice(0, 50).map((a, idx) => (
+              {groupedAlerts.map((g, idx) => (
                 <li key={idx} className="flex items-start">
-                  <span className={`mt-1 h-2 w-2 rounded-full ${severityColor(a.severity)}`}></span>
+                  <span className={`mt-1 h-2 w-2 rounded-full ${severityColor(g.severity)}`}></span>
                   <div className="ml-3">
-                    <div className="text-sm text-gray-900">
-                      {a.type || 'alerte'}{a.process ? ` · ${a.process}` : ''}{a.student ? ` · ${a.student}` : ''}
+                    <div className="text-sm text-gray-900 flex items-center gap-2">
+                      <span>{g.type || 'alerte'}{g.process ? ` · ${g.process}` : ''}{g.student ? ` · ${g.student}` : ''}</span>
+                      <span className="inline-flex items-center justify-center px-2 h-5 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">× {g.count}</span>
                     </div>
-                    <div className="text-xs text-gray-600">{a.message || 'Événement détecté'}</div>
-                    <div className="text-xs text-gray-400">{a.timestamp ? new Date(a.timestamp).toLocaleString() : ''}</div>
+                    <div className="text-xs text-gray-600">{g.message || 'Événement détecté'}</div>
+                    <div className="text-xs text-gray-400">{g.lastTimestamp ? new Date(g.lastTimestamp).toLocaleString() : ''}</div>
                   </div>
                 </li>
               ))}
