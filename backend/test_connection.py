@@ -4,15 +4,17 @@ Test simple de connexion PostgreSQL
 """
 
 import psycopg2
+import os
 from psycopg2 import sql
 
 def test_connection():
     """Test de connexion avec différentes configurations"""
     
+    password = os.getenv("POSTGRES_PASSWORD", "secure_password")
     configs = [
-        "postgresql://root:root@localhost:5432/proctoflex",
-        "postgresql://root:root@127.0.0.1:5432/proctoflex",
-        "postgresql://root:root@host.docker.internal:5432/proctoflex",
+        f"postgresql://postgres:{password}@localhost:5432/proctoflex",
+        f"postgresql://postgres:{password}@127.0.0.1:5432/proctoflex",
+        f"postgresql://postgres:{password}@host.docker.internal:5432/proctoflex",
     ]
     
     for i, url in enumerate(configs, 1):

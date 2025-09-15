@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 
 from app.core.database import get_db, User
 from app.models.user import UserResponse, UserCreate, UserUpdate, UserStats
+from app.core.security import get_password_hash
 
 router = APIRouter()
 
@@ -75,20 +76,19 @@ async def create_user(user: UserCreate, db: Session = Depends(get_db)):
     if existing_username:
         raise HTTPException(status_code=400, detail="Nom d'utilisateur déjà utilisé")
     
-    # Créer l'utilisateur
+    # Créer l'utilisateur avec mot de passe hashé
+    hashed_password = get_password_hash(user.password)
     db_user = User(
         email=user.email,
         username=user.username,
         full_name=user.full_name,
-        hashed_password=user.password,  # En production, hasher le mot de passe
+        hashed_password=hashed_password,
         role=user.role,
         is_active=user.is_active
     )
-    
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
-    
     return db_user
 
 @router.put("/{user_id}", response_model=UserResponse)
@@ -110,8 +110,10 @@ async def update_user(user_id: int, user: UserUpdate, db: Session = Depends(get_
         if existing_username:
             raise HTTPException(status_code=400, detail="Nom d'utilisateur déjà utilisé")
     
-    # Mettre à jour les champs
+    # Mettre à jour les champs (re-hash du mot de passe si fourni)
     update_data = user.dict(exclude_unset=True)
+    if 'password' in update_data and update_data['password']:
+        db_user.hashed_password = get_password_hash(update_data.pop('password'))
     for field, value in update_data.items():
         setattr(db_user, field, value)
     

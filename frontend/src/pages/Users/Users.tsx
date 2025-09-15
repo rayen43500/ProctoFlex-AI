@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-
-const API_BASE = 'http://localhost:8000/api/v1';
+import { API_BASE, getAuthHeaders } from '@/contexts/AuthContext';
 
 interface User {
   id: number;
@@ -48,9 +47,10 @@ export default function Users() {
       setLoading(true);
       setError(null);
       
+      const headers = { 'Content-Type': 'application/json', ...getAuthHeaders() };
       const [usersResponse, statsResponse] = await Promise.all([
-        fetch(`${API_BASE}/users`),
-        fetch(`${API_BASE}/users/stats`)
+        fetch(`${API_BASE}/users`, { headers }),
+        fetch(`${API_BASE}/users/stats`, { headers })
       ]);
 
       if (!usersResponse.ok) throw new Error('Erreur lors du chargement des utilisateurs');
@@ -86,7 +86,10 @@ export default function Users() {
   }
 
   function formatDate(dateString: string) {
-    return new Date(dateString).toLocaleString('fr-FR');
+    if (!dateString) return '-';
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return '-';
+    return d.toLocaleString('fr-FR');
   }
 
   function openCreate() {

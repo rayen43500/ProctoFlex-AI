@@ -6,8 +6,8 @@ services:
     container_name: proctoflex-postgres-simple
     environment:
       POSTGRES_DB: proctoflex
-      POSTGRES_USER: root
-      POSTGRES_PASSWORD: root
+      POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_password}
     volumes:
       - postgres_data_simple:/var/lib/postgresql/data
       - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -23,7 +23,7 @@ services:
       dockerfile: Dockerfile.simple
     container_name: proctoflex-backend-simple
     environment:
-      - DATABASE_URL=postgresql://root:root@postgres:5432/proctoflex
+  - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-secure_password}@postgres:5432/proctoflex
       - SECRET_KEY=dev-secret-key-change-in-production
       - ALGORITHM=HS256
       - ACCESS_TOKEN_EXPIRE_MINUTES=30

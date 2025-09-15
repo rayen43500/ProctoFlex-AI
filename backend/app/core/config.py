@@ -13,9 +13,9 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     
     # Base de données
-    # Format accepté: postgresql://user:pass@host:port/db  ou  mysql+pymysql://user:pass@host:3306/db  ou  sqlite:///./local.db
-    DATABASE_URL: str = "postgresql://postgres:root@localhost:5432/proctoflex"
-    DATABASE_TEST_URL: str = "sqlite:///./test.db"  # Utilisé dans les tests automatisés
+    # Formats acceptés: postgresql://user:pass@host:port/db  ou  mysql+pymysql://user:pass@host:3306/db
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://postgres:secure_password@localhost:5432/proctoflex")
+    DATABASE_TEST_URL: str = os.getenv("DATABASE_TEST_URL", "postgresql://postgres:secure_password@localhost:5432/proctoflex_test")  # URL de test
     DB_ECHO: bool = False  # Activer SQLAlchemy echo pour debug
 
     # Support multi SGBD : si vous souhaitez utiliser MySQL, définissez DATABASE_URL avec le driver mysql+pymysql

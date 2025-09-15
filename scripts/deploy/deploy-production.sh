@@ -76,7 +76,7 @@ backup_existing_data() {
     # Sauvegarder la base de données
     if docker ps | grep -q "proctoflex-postgres"; then
         log_info "Sauvegarde de la base de données..."
-        docker exec proctoflex-postgres pg_dump -U root proctoflex > "$BACKUP_DIR/database_backup_$(date +%Y%m%d_%H%M%S).sql"
+    docker exec proctoflex-postgres pg_dump -U postgres proctoflex > "$BACKUP_DIR/database_backup_$(date +%Y%m%d_%H%M%S).sql"
         log_success "Base de données sauvegardée"
     fi
     
@@ -139,8 +139,8 @@ NODE_ENV=production
 ENVIRONMENT=production
 
 # Base de données
-DATABASE_URL=postgresql://root:${POSTGRES_PASSWORD:-secure_password}@postgres:5432/proctoflex
-DATABASE_TEST_URL=postgresql://root:${POSTGRES_PASSWORD:-secure_password}@postgres:5432/proctoflex_test
+DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-secure_password}@postgres:5432/proctoflex
+DATABASE_TEST_URL=postgresql://postgres:${POSTGRES_PASSWORD:-secure_password}@postgres:5432/proctoflex_test
 
 # Redis
 REDIS_URL=redis://redis:6379
@@ -204,19 +204,19 @@ setup_database() {
     log_info "Configuration de la base de données..."
     
     # Attendre que PostgreSQL soit prêt
-    until docker exec proctoflex-postgres pg_isready -U root; do
+    until docker exec proctoflex-postgres pg_isready -U postgres; do
         log_info "Attente de PostgreSQL..."
         sleep 5
     done
     
     # Exécuter les migrations
     if [ -f "backend/init.sql" ]; then
-        docker exec -i proctoflex-postgres psql -U root -d proctoflex < backend/init.sql
+    docker exec -i proctoflex-postgres psql -U postgres -d proctoflex < backend/init.sql
         log_success "Base de données initialisée"
     fi
     
     # Créer les utilisateurs de test
-    docker exec proctoflex-postgres psql -U root -d proctoflex -c "
+    docker exec proctoflex-postgres psql -U postgres -d proctoflex -c "
         INSERT INTO users (email, username, full_name, hashed_password, role) 
         VALUES ('admin@esprim.tn', 'admin', 'Administrateur', '\$2b\$12\$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4J/HS.8K2', 'admin')
         ON CONFLICT (email) DO NOTHING;
@@ -283,7 +283,7 @@ run_validation_tests() {
     fi
     
     # Test de la base de données
-    if docker exec proctoflex-postgres psql -U root -d proctoflex -c "SELECT 1;" > /dev/null 2>&1; then
+    if docker exec proctoflex-postgres psql -U postgres -d proctoflex -c "SELECT 1;" > /dev/null 2>&1; then
         log_success "Base de données accessible"
     else
         log_error "Base de données non accessible"

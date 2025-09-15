@@ -10,11 +10,13 @@ from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 import uvicorn
 from typing import List
+from sqlalchemy import func
+from fastapi import Header
 import logging
 import os
 from datetime import datetime
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, Text, ForeignKey
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import func
 
@@ -23,9 +25,23 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Configuration de la base de données
-import os as _os
-DATABASE_URL = _os.getenv("DATABASE_URL", "postgresql://postgres:root@postgres:5432/proctoflex")
+import os as _os, os
+from pathlib import Path
+DB_REQUIRED = _os.getenv("DB_REQUIRED", "true").lower() in ("1", "true", "yes")
 
+def _default_db_url() -> str:
+    # Si on est dans un conteneur Docker, utiliser le hostname du service postgres
+    try:
+        if Path("/.dockerenv").exists() or _os.getenv("DOCKER") == "true" or _os.getenv("INSIDE_DOCKER") == "1":
+            return "postgresql://postgres:secure_password@postgres:5432/proctoflex"
+    except Exception:
+        pass
+    # Sinon, fallback local
+    return "postgresql://postgres:secure_password@localhost:5432/proctoflex"
+
+DATABASE_URL = _os.getenv("DATABASE_URL", _default_db_url())
+
+logger.info(f"Using DATABASE_URL: {DATABASE_URL}")
 try:
     engine = create_engine(DATABASE_URL)
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -83,6 +99,11 @@ except Exception as e:
     ExamDB = None
     SessionLocal = None
 
+# En mode strict (par défaut), ne pas démarrer si la DB n'est pas disponible
+if DB_REQUIRED and not DB_OK:
+    logger.error("❌ PostgreSQL est requis (DB_REQUIRED=true) mais indisponible. Arrêt du serveur.")
+    raise SystemExit(1)
+
 # Configuration de base
 app = FastAPI(
     title="ProctoFlex AI API",
@@ -130,6 +151,35 @@ def _bootstrap_users():
     USERS["student"] = {"username": "student", "email": "student@test.com", "full_name": "Étudiant Démo", "password": student_h, "role": "student"}
     EMAIL_INDEX["admin@proctoflex.ai"] = "admin"
     EMAIL_INDEX["student@test.com"] = "student"
+    # Réplication optionnelle en base si disponible
+    if DB_OK and SessionLocal is not None and UserDB is not None:
+        try:
+            with SessionLocal() as db:
+                # Admin
+                existing_admin = db.query(UserDB).filter((UserDB.username == "admin") | (UserDB.email == "admin@proctoflex.ai")).first()
+                if not existing_admin:
+                    db.add(UserDB(
+                        email="admin@proctoflex.ai",
+                        username="admin",
+                        full_name="Administrateur",
+                        hashed_password=admin_h,
+                        role="admin",
+                        is_active=True
+                    ))
+                # Student demo
+                existing_student = db.query(UserDB).filter((UserDB.username == "student") | (UserDB.email == "student@test.com")).first()
+                if not existing_student:
+                    db.add(UserDB(
+                        email="student@test.com",
+                        username="student",
+                        full_name="Étudiant Démo",
+                        hashed_password=student_h,
+                        role="student",
+                        is_active=True
+                    ))
+                db.commit()
+        except Exception as _e:
+            logger.warning(f"Bootstrap DB users skipped: {_e}")
 
 _bootstrap_users()
 
@@ -175,52 +225,73 @@ async def get_sessions():
 @app.post("/api/v1/auth/login")
 async def login(credentials: dict):
     """Authentification avec base de données PostgreSQL"""
-    username_or_email = credentials.get("username", "")
-    password = credentials.get("password", "")
+    # Accepter 'username' ou 'email' comme identifiant
+    username_or_email = str(
+        credentials.get("username")
+        or credentials.get("email")
+        or ""
+    ).strip()
+    password = str(credentials.get("password", ""))
+    ident_lower = username_or_email.lower()
 
     if DB_OK:
         with SessionLocal() as db:
-            # Chercher par email ou username
-            user = db.query(UserDB).filter(
-                (UserDB.email == username_or_email) | (UserDB.username == username_or_email)
+            # Chercher par email ou username (base de données)
+            user_db = db.query(UserDB).filter(
+                (func.lower(UserDB.email) == ident_lower) | (func.lower(UserDB.username) == ident_lower)
             ).first()
-            
-            if user and verify_password(password, user.hashed_password):
-                token = f"fake_token_{user.username}_123"
+            if user_db and verify_password(password, user_db.hashed_password):
+                token = f"fake_token_{user_db.username}_123"
                 return {
                     "access_token": token,
                     "token_type": "bearer",
                     "user": {
-                        "id": user.id,
-                        "username": user.username,
-                        "email": user.email,
-                        "full_name": user.full_name,
-                        "role": user.role,
+                        "id": user_db.id,
+                        "username": user_db.username,
+                        "email": user_db.email,
+                        "full_name": user_db.full_name,
+                        "role": user_db.role,
                     }
                 }
-    else:
-        # Fallback sur les données en mémoire
-        user = USERS.get(username_or_email)
-        if not user:
-            key = EMAIL_INDEX.get(username_or_email)
-            if key:
-                user = USERS.get(key)
+    # Si DB est active et qu'on n'a pas authentifié, renvoyer 401 sans fallback mémoire
+    if DB_OK:
+        raise HTTPException(status_code=401, detail="Identifiants invalides")
+    # Pas de fallback mémoire: si DB indisponible, répondre 503
+    raise HTTPException(status_code=503, detail="Base de données indisponible")
 
-        if user and verify_password(password, user.get("password", "")):
-            token = f"fake_token_{user['username']}_123"
-            return {
-                "access_token": token,
-                "token_type": "bearer",
-                "user": {
-                    "id": 999 if user["username"] not in ("admin", "student") else (1 if user["username"]=="admin" else 2),
-                    "username": user["username"],
-                    "email": user["email"],
-                    "full_name": user.get("full_name", user["username"]),
-                    "role": user.get("role", "student"),
+# Profil utilisateur courant
+@app.get("/api/v1/auth/me")
+async def auth_me(authorization: str | None = Header(default=None)):
+    """Retourne l'utilisateur courant sur base du token (format simulé)."""
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Token manquant")
+    token = authorization.split(" ", 1)[1]
+    username = None
+    # Token simulé: fake_token_<username>_123
+    if token.startswith("fake_token_") and token.endswith("_123"):
+        try:
+            username = token[len("fake_token_"):-len("_123")]
+        except Exception:
+            username = None
+
+    if not username:
+        raise HTTPException(status_code=401, detail="Token invalide")
+
+    if DB_OK:
+        with SessionLocal() as db:
+            user_db = db.query(UserDB).filter(UserDB.username == username).first()
+            if user_db:
+                return {
+                    "id": user_db.id,
+                    "email": user_db.email,
+                    "username": user_db.username,
+                    "full_name": user_db.full_name,
+                    "role": user_db.role,
+                    "is_active": user_db.is_active,
                 }
-            }
 
-    raise HTTPException(status_code=401, detail="Identifiants invalides")
+    # Pas de fallback mémoire
+    raise HTTPException(status_code=503, detail="Base de données indisponible")
 
 # Login avec visage (simulation)
 @app.post("/api/v1/auth/login-with-face")
@@ -352,30 +423,8 @@ async def register_with_face(payload: dict):
                     "role": new_user.role
                 }
             }
-    else:
-        # Fallback sur les données en mémoire
-        USERS[username] = {
-            "username": username,
-            "email": email,
-            "full_name": full_name,
-            "password": hash_password(password),
-            "role": role,
-        }
-        EMAIL_INDEX[email] = username
-        if face_image_base64:
-            FACE_INDEX[face_image_base64] = username
-
-        return {
-            "access_token": "fake_token_registered_123",
-            "token_type": "bearer",
-            "user": {
-                "id": 999,
-                "username": username,
-                "email": email,
-                "full_name": full_name,
-                "role": role
-            }
-        }
+    # Pas de fallback mémoire
+    raise HTTPException(status_code=503, detail="Base de données indisponible")
 
 # Routes de surveillance (simulées)
 @app.post("/api/v1/surveillance/sessions/{session_id}/start")
@@ -530,7 +579,7 @@ async def exams_list():
                     "pdf_path": r.pdf_path,
                 } for r in rows
             ]
-    return list(EXAMS.values())
+    raise HTTPException(status_code=503, detail="Base de données indisponible")
 
 @app.post("/api/v1/exams")
 async def exams_create(payload: dict):
@@ -574,18 +623,7 @@ async def exams_create(payload: dict):
                 "created_at": row.created_at,
                 "pdf_path": row.pdf_path,
             }
-    exam = {
-        "id": new_id,
-        "title": payload.get("title", "Examen"),
-        "description": payload.get("description", ""),
-        "duration_minutes": int(payload.get("duration_minutes", 60)),
-        "status": payload.get("status", "draft"),
-        "instructions": payload.get("instructions", ""),
-        "created_at": payload.get("created_at", "2025-01-15T10:00:00Z"),
-        "pdf_path": None,
-    }
-    EXAMS[new_id] = exam
-    return exam
+    raise HTTPException(status_code=503, detail="Base de données indisponible")
 
 @app.put("/api/v1/exams/{exam_id}")
 async def exams_update(exam_id: str, payload: dict):
@@ -609,10 +647,7 @@ async def exams_update(exam_id: str, payload: dict):
                 "created_at": row.created_at,
                 "pdf_path": row.pdf_path,
             }
-    if exam_id not in EXAMS:
-        raise HTTPException(status_code=404, detail="Examen introuvable")
-    EXAMS[exam_id].update({k: v for k, v in payload.items() if k in EXAMS[exam_id]})
-    return EXAMS[exam_id]
+    raise HTTPException(status_code=503, detail="Base de données indisponible")
 
 @app.delete("/api/v1/exams/{exam_id}")
 async def exams_delete(exam_id: str):
@@ -622,10 +657,7 @@ async def exams_delete(exam_id: str):
             if row:
                 db.delete(row)
                 db.commit()
-    else:
-        if exam_id in EXAMS:
-            EXAMS.pop(exam_id)
-    return {"success": True}
+    raise HTTPException(status_code=503, detail="Base de données indisponible")
 
 # --- Ressources d'examen (PDF) ---
 UPLOAD_DIR = os.path.join(os.getcwd(), "uploads", "exams")
@@ -647,10 +679,6 @@ async def upload_exam_material(exam_id: str, file: UploadFile = File(...)):
     if DB_OK:
         row.pdf_path = filename
         db.commit()
-    else:
-        if exam_id not in EXAMS:
-            raise HTTPException(status_code=404, detail="Examen introuvable")
-        EXAMS[exam_id]["pdf_path"] = filename
     return {"success": True, "filename": filename}
 
 @app.get("/api/v1/exams/{exam_id}/material")
@@ -662,11 +690,6 @@ async def get_exam_material(exam_id: str):
             if not row or not row.pdf_path:
                 raise HTTPException(status_code=404, detail="Aucun document")
             filename = row.pdf_path
-    else:
-        exam = EXAMS.get(exam_id)
-        if not exam or not exam.get("pdf_path"):
-            raise HTTPException(status_code=404, detail="Aucun document")
-        filename = exam["pdf_path"]
     path = os.path.join(UPLOAD_DIR, filename)
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="Fichier introuvable")
@@ -702,7 +725,12 @@ async def get_student_exams(student_id: int):
             
             return exams
     
-    return []
+    raise HTTPException(status_code=503, detail="Base de données indisponible")
+
+# Alias de compatibilité pour l'app desktop
+@app.get("/api/v1/exams/student/{student_id}")
+async def get_student_exams_alias(student_id: int):
+    return await get_student_exams(student_id)
 
 @app.get("/api/v1/students/{student_id}/exams/{exam_id}")
 async def get_student_exam_details(student_id: int, exam_id: str):
@@ -735,7 +763,7 @@ async def get_student_exam_details(student_id: int, exam_id: str):
                 "created_at": exam.created_at
             }
     
-    raise HTTPException(status_code=404, detail="Examen non trouvé")
+    raise HTTPException(status_code=503, detail="Base de données indisponible")
 
 # --- Endpoints Utilisateurs ---
 @app.get("/api/v1/users")
@@ -743,8 +771,8 @@ async def get_users():
     """Récupérer la liste des utilisateurs"""
     if DB_OK:
         with SessionLocal() as db:
-            users = db.query(UserDB).all()
-            return [
+            users_db = db.query(UserDB).all()
+            result = [
                 {
                     "id": user.id,
                     "email": user.email,
@@ -755,9 +783,10 @@ async def get_users():
                     "created_at": user.created_at,
                     "updated_at": user.updated_at
                 }
-                for user in users
+                for user in users_db
             ]
-    return list(USERS.values())
+            return result
+    raise HTTPException(status_code=503, detail="Base de données indisponible")
 
 @app.get("/api/v1/users/stats")
 async def get_user_stats():
@@ -785,15 +814,7 @@ async def get_user_stats():
                 "active_today": active_today
             }
     
-    # Fallback pour les données en mémoire
-    users_list = list(USERS.values())
-    return {
-        "total_users": len(users_list),
-        "students": len([u for u in users_list if u.get("role") == "student"]),
-        "admins": len([u for u in users_list if u.get("role") == "admin"]),
-        "instructors": len([u for u in users_list if u.get("role") == "instructor"]),
-        "active_today": len(users_list)  # Approximation
-    }
+    raise HTTPException(status_code=503, detail="Base de données indisponible")
 
 @app.get("/api/v1/users/{user_id}")
 async def get_user(user_id: int):
@@ -814,11 +835,7 @@ async def get_user(user_id: int):
                 "updated_at": user.updated_at
             }
     
-    # Fallback pour les données en mémoire
-    user = USERS.get(str(user_id))
-    if not user:
-        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
-    return user
+    raise HTTPException(status_code=503, detail="Base de données indisponible")
 
 @app.post("/api/v1/users")
 async def create_user(user_data: dict):
@@ -860,19 +877,7 @@ async def create_user(user_data: dict):
                 "updated_at": db_user.updated_at
             }
     
-    # Fallback pour les données en mémoire
-    user_id = str(len(USERS) + 1)
-    USERS[user_id] = {
-        "id": user_id,
-        "email": user_data["email"],
-        "username": user_data["username"],
-        "full_name": user_data["full_name"],
-        "role": user_data.get("role", "student"),
-        "is_active": user_data.get("is_active", True),
-        "created_at": datetime.now().isoformat()
-    }
-    EMAIL_INDEX[user_data["email"]] = user_id
-    return USERS[user_id]
+    raise HTTPException(status_code=503, detail="Base de données indisponible")
 
 @app.put("/api/v1/users/{user_id}")
 async def update_user(user_id: int, user_data: dict):
@@ -917,17 +922,7 @@ async def update_user(user_id: int, user_data: dict):
                 "updated_at": db_user.updated_at
             }
     
-    # Fallback pour les données en mémoire
-    user = USERS.get(str(user_id))
-    if not user:
-        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
-    
-    for field, value in user_data.items():
-        if field != "password":  # Ne pas stocker le mot de passe en clair
-            user[field] = value
-    
-    user["updated_at"] = datetime.now().isoformat()
-    return user
+    raise HTTPException(status_code=503, detail="Base de données indisponible")
 
 @app.delete("/api/v1/users/{user_id}")
 async def delete_user(user_id: int):
@@ -945,14 +940,7 @@ async def delete_user(user_id: int):
             
             return {"message": "Utilisateur supprimé avec succès"}
     
-    # Fallback pour les données en mémoire
-    user = USERS.get(str(user_id))
-    if not user:
-        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
-    
-    user["is_active"] = False
-    user["updated_at"] = datetime.now().isoformat()
-    return {"message": "Utilisateur supprimé avec succès"}
+    raise HTTPException(status_code=503, detail="Base de données indisponible")
 
 @app.patch("/api/v1/users/{user_id}/toggle-status")
 async def toggle_user_status(user_id: int):
@@ -972,18 +960,7 @@ async def toggle_user_status(user_id: int):
                 "is_active": db_user.is_active
             }
     
-    # Fallback pour les données en mémoire
-    user = USERS.get(str(user_id))
-    if not user:
-        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
-    
-    user["is_active"] = not user.get("is_active", True)
-    user["updated_at"] = datetime.now().isoformat()
-    
-    return {
-        "message": f"Utilisateur {'activé' if user['is_active'] else 'désactivé'} avec succès",
-        "is_active": user["is_active"]
-    }
+    raise HTTPException(status_code=503, detail="Base de données indisponible")
 
 # --- Configuration de verrouillage (apps autorisées/interdites, domaines, politique) ---
 LOCK_CONFIG = {

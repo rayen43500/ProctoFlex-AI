@@ -39,7 +39,7 @@ pytest -q
 ```
 
 ### Base de données alternative
-Changer `DATABASE_URL` dans `.env` pour utiliser MySQL ou SQLite.
+Changer `DATABASE_URL` dans `.env` pour utiliser MySQL. PostgreSQL est recommandé et SQLite n'est plus supporté.
 
 ### YOLO
 Placer `models/yolov5s.pt` ou laisser `YOLO_AUTO_DOWNLOAD=true` (voir README).
@@ -80,7 +80,7 @@ npm run dev
 ### Variables d'Environnement
 ```bash
 # Backend
-DATABASE_URL=postgresql://root:root@postgres:5432/proctoflex
+DATABASE_URL=postgresql://postgres:secure_password@postgres:5432/proctoflex
 REDIS_URL=redis://redis:6379
 SECRET_KEY=your-secret-key
 

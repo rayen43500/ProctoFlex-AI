@@ -9,7 +9,7 @@
 - **Mot de passe** : `root`
 - **Base de données** : `proctoflex`
 - **Port** : `5432`
-- **Connexion** : `postgresql://postgres:root@localhost:5432/proctoflex`
+- **Connexion** : `postgresql://postgres:secure_password@localhost:5432/proctoflex`
 
 ### 📋 **Tables Créées**
 - ✅ `users` (9 colonnes) - Gestion des utilisateurs

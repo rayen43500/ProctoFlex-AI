@@ -63,16 +63,15 @@ npm run dev
 
 ## �️ Base de Données
 
-Par défaut le projet utilise PostgreSQL (voir `docker-compose.yml`). Vous pouvez changer de SGBD via la variable `DATABASE_URL` (supportés: PostgreSQL, MySQL/MariaDB via `mysql+pymysql://`, ou SQLite pour développement/test).
+Le projet utilise PostgreSQL par défaut (voir `docker-compose.yml`). Vous pouvez changer de SGBD via la variable `DATABASE_URL` (supportés: PostgreSQL, MySQL/MariaDB via `mysql+pymysql://`). SQLite n'est plus supporté.
 
 Exemples :
 ```
 DATABASE_URL=postgresql://user:pass@localhost:5432/proctoflex
 DATABASE_URL=mysql+pymysql://user:pass@localhost:3306/proctoflex
-DATABASE_URL=sqlite:///./local.db
 ```
 
-Pour les tests rapides une base SQLite est utilisée (`DATABASE_TEST_URL`).
+Pour les tests, utilisez une base PostgreSQL dédiée via `DATABASE_TEST_URL`.
 
 ## 🤖 Modèle YOLO
 

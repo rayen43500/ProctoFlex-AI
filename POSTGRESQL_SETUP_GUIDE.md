@@ -68,8 +68,8 @@ Créez un fichier `.env` dans le dossier `backend/` :
 
 ```bash
 # Base de données PostgreSQL
-DATABASE_URL=postgresql://root:root@localhost:5432/proctoflex
-DATABASE_TEST_URL=postgresql://root:root@localhost:5432/proctoflex_test
+DATABASE_URL=postgresql://postgres:secure_password@localhost:5432/proctoflex
+DATABASE_TEST_URL=postgresql://postgres:secure_password@localhost:5432/proctoflex_test
 
 # Sécurité
 SECRET_KEY=your-secret-key-change-in-production-please-use-a-strong-random-key
@@ -214,7 +214,7 @@ curl http://localhost:8000/api/v1/exams
 pg_dump proctoflex > backup_$(date +%Y%m%d).sql
 
 # Sauvegarde avec Docker
-docker exec proctoflex-postgres pg_dump -U root proctoflex > backup.sql
+docker exec proctoflex-postgres pg_dump -U postgres proctoflex > backup.sql
 ```
 
 ### 2. Restauration
@@ -223,7 +223,7 @@ docker exec proctoflex-postgres pg_dump -U root proctoflex > backup.sql
 psql proctoflex < backup_20231201.sql
 
 # Avec Docker
-docker exec -i proctoflex-postgres psql -U root proctoflex < backup.sql
+docker exec -i proctoflex-postgres psql -U postgres proctoflex < backup.sql
 ```
 
 ### 3. Nettoyage

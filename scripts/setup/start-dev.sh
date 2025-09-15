@@ -103,7 +103,7 @@ wait_for_services() {
     # Attendre PostgreSQL
     print_message "Vérification de PostgreSQL..."
     for i in {1..30}; do
-        if docker exec proctoflex-postgres-dev pg_isready -U root -d proctoflex &> /dev/null; then
+    if docker exec proctoflex-postgres-dev pg_isready -U postgres -d proctoflex &> /dev/null; then
             print_success "PostgreSQL est prêt"
             break
         fi
@@ -201,7 +201,7 @@ show_connection_info() {
     echo "  • Redis:           localhost:6379"
     echo ""
     echo "🔐 Identifiants par défaut:"
-    echo "  • PostgreSQL:      root / root"
+    echo "  • PostgreSQL:      postgres / ${POSTGRES_PASSWORD:-secure_password}"
     echo "  • Admin:           admin@proctoflex.ai / admin123"
     echo "  • Étudiant Test:   student@test.com / student123"
     echo ""

@@ -66,10 +66,10 @@ conn.execute(text("SELECT 1"))
 ### **Configuration Base de Données**
 ```python
 # Avant (incorrect)
-DATABASE_URL = "postgresql://postgres:root@localhost:5432/proctoflex"
+DATABASE_URL = "postgresql://postgres:secure_password@localhost:5432/proctoflex"
 
 # Après (correct)
-DATABASE_URL = "postgresql://postgres:root@postgres:5432/proctoflex"
+DATABASE_URL = "postgresql://postgres:secure_password@postgres:5432/proctoflex"
 ```
 
 ## 🧪 **Tests Effectués**
