@@ -16,7 +16,7 @@ if exist "package.json" (
     exit /b 1
 )
 
-if exist "src/renderer/main.tsx" (
+if exist "src/render/main.tsx" (
     echo ✅ main.tsx trouvé
 ) else (
     echo ❌ main.tsx manquant
@@ -24,7 +24,7 @@ if exist "src/renderer/main.tsx" (
     exit /b 1
 )
 
-if exist "src/renderer/App.tsx" (
+if exist "src/render/App.tsx" (
     echo ✅ App.tsx trouvé
 ) else (
     echo ❌ App.tsx manquant

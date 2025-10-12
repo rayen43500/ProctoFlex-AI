@@ -22,10 +22,10 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': resolve(__dirname, 'src/renderer'),
-      '@components': resolve(__dirname, 'src/renderer/components'),
-      '@styles': resolve(__dirname, 'src/renderer/styles'),
-      '@utils': resolve(__dirname, 'src/renderer/utils'),
+      '@': resolve(__dirname, 'src/render'),
+      '@components': resolve(__dirname, 'src/render/components'),
+      '@styles': resolve(__dirname, 'src/render/styles'),
+      '@utils': resolve(__dirname, 'src/render/utils'),
     },
   },
   server: {
