@@ -20,11 +20,14 @@ cd proctoflex-ai
 
 ### 2. Démarrer avec Docker (Recommandé)
 ```bash
-# Démarrer tous les services
-docker-compose up -d
+# Pour un démarrage rapide en local (évite la construction des gros packages ML) :
+docker compose -f docker-compose.simple.yml up -d
 
 # Vérifier le statut
-docker-compose ps
+docker compose -f docker-compose.simple.yml ps
+
+# Pour lancer la stack complète (construction lourde, peut prendre longtemps) :
+# docker compose up -d
 ```
 
 ### 3. Accéder aux Services

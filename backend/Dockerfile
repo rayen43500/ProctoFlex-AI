@@ -34,7 +34,7 @@ RUN apt-get update && apt-get install -y \
     libjpeg-dev \
     libpng-dev \
     libtiff-dev \
-    libatlas-base-dev \
+    # libatlas-base-dev removed (not available on base image)
     libgstreamer1.0-0 \
     libgstreamer-plugins-base1.0-0 \
     # Audio processing

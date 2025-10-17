@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
-    libxrender-dev \
+    libxrender1 \
     libgomp1 \
     libglib2.0-0 \
     libgtk-3-0 \
@@ -28,7 +28,6 @@ RUN apt-get update && apt-get install -y \
     libjpeg-dev \
     libpng-dev \
     libtiff-dev \
-    libatlas-base-dev \
     python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
@@ -43,6 +42,9 @@ RUN pip install --no-cache-dir -r requirements-simple.txt
 
 # Copie du code source
 COPY . .
+
+# Rendre le script de démarrage disponible et exécutable
+RUN chmod +x /app/wait-for-db.sh || true
 
 # Création des répertoires nécessaires
 RUN mkdir -p logs uploads

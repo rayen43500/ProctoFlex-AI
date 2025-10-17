@@ -234,6 +234,7 @@ async def login(credentials: dict):
     password = str(credentials.get("password", ""))
     ident_lower = username_or_email.lower()
 
+    # 1) Si la DB est disponible, tenter l'authentification en base
     if DB_OK:
         with SessionLocal() as db:
             # Chercher par email ou username (base de données)
@@ -253,10 +254,45 @@ async def login(credentials: dict):
                         "role": user_db.role,
                     }
                 }
-    # Si DB est active et qu'on n'a pas authentifié, renvoyer 401 sans fallback mémoire
+
+    # 2) Fallback mémoire (utile en dev lorsque la DB est partiellement remplie
+    #    ou pour les comptes bootstrapés). On n'utilise ce fallback que si
+    #    l'authentification en base a échoué.
+    try:
+        # Trouver par username exact (clé) ou par email index
+        key = None
+        if username_or_email in USERS:
+            key = username_or_email
+        else:
+            # Chercher email insensitive
+            for em, uname in EMAIL_INDEX.items():
+                if em.lower() == ident_lower:
+                    key = uname
+                    break
+
+        if key:
+            mem_user = USERS.get(key)
+            if mem_user and verify_password(password, mem_user.get("password") or ""):
+                token = f"fake_token_{mem_user['username']}_123"
+                return {
+                    "access_token": token,
+                    "token_type": "bearer",
+                    "user": {
+                        "id": 999,  # mémoire: id fictif
+                        "username": mem_user["username"],
+                        "email": mem_user.get("email"),
+                        "full_name": mem_user.get("full_name", mem_user["username"]),
+                        "role": mem_user.get("role", "student"),
+                    }
+                }
+    except Exception:
+        # Ne jamais exposer d'erreurs internes d'authentification
+        pass
+
+    # 3) Si la DB est active, renvoyer 401 (identifiants invalides). Si la DB
+    #    est indisponible, renvoyer 503.
     if DB_OK:
         raise HTTPException(status_code=401, detail="Identifiants invalides")
-    # Pas de fallback mémoire: si DB indisponible, répondre 503
     raise HTTPException(status_code=503, detail="Base de données indisponible")
 
 # Profil utilisateur courant

@@ -15,7 +15,9 @@ from app.core.config import settings
 from app.core.database import get_db, User
 
 # Configuration du hachage des mots de passe
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Support PBKDF2-SHA256 (pure-python) and bcrypt (native). This lets the app verify
+# passwords hashed with either algorithm (useful for dev where bcrypt might be missing).
+pwd_context = CryptContext(schemes=["pbkdf2_sha256", "bcrypt"], deprecated="auto")
 
 # Configuration du token bearer
 security = HTTPBearer()

@@ -33,9 +33,10 @@ services:
 
   # Backend API FastAPI
   backend:
+    image: nisrinetwity-copy-backend
     build:
       context: ./backend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.simple
     container_name: proctoflex-backend-dev
     environment:
       - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-secure_password}@postgres:5432/proctoflex
