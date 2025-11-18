@@ -400,15 +400,15 @@ export default function Surveillance(): JSX.Element {
       {/* Header supprimé comme demandé */}
 
       {/* Vérifications préalables */}
-      <Card className="p-6 bg-white rounded-2xl shadow-lg border border-gray-200 animate-fade-in-up hover-lift">
+  <Card className="p-6 card-elevated animate-fade-in-up">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+          <div className="w-8 h-8 bg-gradient-to-r from-primary to-indigo-600 rounded-lg flex items-center justify-center">
             <Shield className="w-4 h-4 text-white" />
           </div>
           <h3 className="text-lg font-semibold text-gray-700">Vérifications Préalables</h3>
         </div>
         
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4">
+  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4">
           <div className={`flex items-center gap-2 sm:gap-3 p-3 sm:p-4 rounded-xl border-2 ${
             cameraOk === null 
               ? 'bg-gray-50 border-gray-200' 
@@ -489,7 +489,7 @@ export default function Surveillance(): JSX.Element {
               variant="secondary"
               size="lg"
               icon={Activity}
-              className="h-12 px-6 rounded-xl"
+              className="btn btn-ghost h-12 px-6 rounded-xl text-contrast-safe"
             >
               Vérifier les Périphériques
             </Button>
@@ -502,10 +502,10 @@ export default function Surveillance(): JSX.Element {
                 setAlerts([]);
                 await performPreChecks();
               }}
-              variant="outline"
+              variant="secondary"
               size="lg"
               icon={RefreshCw}
-              className="h-12 px-6 rounded-xl"
+              className="btn btn-ghost h-12 px-6 rounded-xl text-contrast-safe"
             >
               Réinitialiser
             </Button>
@@ -562,7 +562,7 @@ export default function Surveillance(): JSX.Element {
                 variant="primary"
                 size="lg"
                 icon={Camera}
-                className="h-12 px-6 rounded-xl"
+                className="btn btn-primary h-12 px-6 rounded-xl"
               >
                 Demander les Permissions
               </Button>
@@ -580,9 +580,9 @@ export default function Surveillance(): JSX.Element {
       {/* Contrôles et Timer */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Timer et Instructions */}
-        <Card className="p-6 bg-white rounded-2xl shadow-lg border border-gray-200 animate-fade-in-up hover-lift">
+  <Card className="p-6 card-elevated animate-fade-in-up">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-gradient-to-r from-primary to-indigo-600 rounded-lg flex items-center justify-center">
               <Clock className="w-4 h-4 text-white" />
             </div>
             <h3 className="text-lg font-semibold text-gray-700">Temps Restant</h3>
@@ -604,7 +604,7 @@ export default function Surveillance(): JSX.Element {
         </Card>
 
         {/* Contrôles de Surveillance */}
-        <Card className="p-6 bg-white rounded-2xl shadow-lg border border-gray-200 animate-fade-in-up hover-lift">
+  <Card className="p-6 card-elevated animate-fade-in-up">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
               <Video className="w-4 h-4 text-white" />
@@ -627,19 +627,19 @@ export default function Surveillance(): JSX.Element {
               <div className="space-y-3">
                 <Button
                   onClick={stop}
-                  variant="secondary"
+                  variant="danger"
                   size="lg"
                   icon={Square}
-                  className="w-full h-12 rounded-xl text-lg font-semibold bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
+                  className="w-full h-12 rounded-xl text-lg font-semibold"
                 >
                   Arrêter la Surveillance
                 </Button>
                 <Button
                   onClick={submitExam}
-                  variant="primary"
+                  variant="success"
                   size="lg"
                   icon={CheckCircle}
-                  className="w-full h-12 rounded-xl text-lg font-semibold bg-green-600 hover:bg-green-700"
+                  className="w-full h-12 rounded-xl text-lg font-semibold"
                 >
                   Soumettre l'Examen
                 </Button>
@@ -653,9 +653,9 @@ export default function Surveillance(): JSX.Element {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Caméra */}
         <div className="xl:col-span-2">
-          <Card className="p-6 bg-white rounded-2xl shadow-lg border border-gray-200 animate-fade-in-up hover-lift">
+          <Card className="p-6 card-elevated animate-fade-in-up">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 bg-gradient-to-r from-indigo-500 to-blue-600 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-gradient-to-r from-primary to-blue-600 rounded-lg flex items-center justify-center">
                 <Camera className="w-4 h-4 text-white" />
               </div>
               <h3 className="text-lg font-semibold text-gray-700">Vue Caméra</h3>
@@ -682,7 +682,7 @@ export default function Surveillance(): JSX.Element {
 
         {/* Alertes */}
         <div>
-          <Card className="p-6 bg-white rounded-2xl shadow-lg border border-gray-200 animate-fade-in-up hover-lift h-full">
+          <Card className="p-6 card-elevated animate-fade-in-up h-full">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
                 <AlertCircle className="w-4 h-4 text-white" />

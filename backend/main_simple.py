@@ -693,6 +693,10 @@ async def exams_delete(exam_id: str):
             if row:
                 db.delete(row)
                 db.commit()
+                return {"success": True}
+            # If row not found, return 404
+            raise HTTPException(status_code=404, detail="Examen introuvable")
+    # DB not available
     raise HTTPException(status_code=503, detail="Base de données indisponible")
 
 # --- Ressources d'examen (PDF) ---

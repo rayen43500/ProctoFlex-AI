@@ -130,3 +130,12 @@ docker-compose -f docker-compose.dev.yml up -d
 
 
 rayen985958@gmail.com
+
+
+
+password
+: 
+"admin123"
+username
+: 
+"admin@proctoflex.ai"s

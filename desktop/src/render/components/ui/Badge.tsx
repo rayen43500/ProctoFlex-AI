@@ -18,15 +18,15 @@ export default function Badge({
   className = '',
   dot = false
 }: BadgeProps) {
-  const baseClasses = 'inline-flex items-center font-medium rounded-full transition-all duration-200';
+  const baseClasses = 'inline-flex items-center font-medium rounded-full transition duration-200';
   
   const variantClasses = {
-    default: 'bg-gray-100 text-gray-800 border border-gray-200',
-    primary: 'bg-primary-100 text-primary-800 border border-primary-200',
-    success: 'bg-success-100 text-success-800 border border-success-200',
-    warning: 'bg-warning-100 text-warning-800 border border-warning-200',
-    danger: 'bg-danger-100 text-danger-800 border border-danger-200',
-    info: 'bg-info-100 text-info-800 border border-info-200',
+    default: 'bg-gray-50 text-gray-700 border border-gray-100',
+    primary: 'bg-primary-50 text-primary-700 border border-primary-100',
+    success: 'bg-success-50 text-success-700 border border-success-100',
+    warning: 'bg-warning-50 text-warning-700 border border-warning-100',
+    danger: 'bg-danger-50 text-danger-700 border border-danger-100',
+    info: 'bg-info-50 text-info-700 border border-info-100',
     outline: 'bg-transparent text-gray-700 border border-gray-300'
   };
   

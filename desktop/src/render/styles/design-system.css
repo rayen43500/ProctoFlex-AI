@@ -553,6 +553,48 @@ body {
   outline-offset: 2px;
 }
 
+/* -------------------------------
+   Utility helpers for desktop
+   ------------------------------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.6rem;
+  font-weight: 600;
+  transition: all var(--transition-fast);
+}
+
+.btn:active { transform: translateY(1px) scale(0.995); }
+
+.btn-primary {
+  background: var(--primary-500);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+.btn-primary:hover { background: var(--primary-600); box-shadow: var(--shadow-md); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--gray-700);
+  border: 1px solid transparent;
+}
+.btn-ghost:hover { background: var(--gray-50); }
+
+.card-elevated {
+  background: var(--bg-primary);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-normal);
+}
+.card-elevated:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
+
+/* helper to avoid black buttons or dark text on light buttons */
+.text-contrast-safe { color: var(--gray-900); }
+
 /* Print Styles */
 @media print {
   .no-print { display: none !important; }

@@ -1,708 +1,561 @@
 /**
- * Dashboard Administrateur Complet
- * ProctoFlex AI - Université de Monastir - ESPRIM
+ * Advanced Surveillance & Technology Dashboard - ProctoFlex AI
+ * Real-time exam monitoring interface with advanced analytics
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Chart as ChartJS, 
-  CategoryScale, 
-  LinearScale, 
-  PointElement, 
-  LineElement, 
-  BarElement,
-  Title, 
-  Tooltip, 
-  Legend,
-  ArcElement
-} from 'chart.js';
-import { Line, Bar, Doughnut } from 'react-chartjs-2';
-import { 
-  Users, 
-  Monitor, 
-  AlertTriangle, 
-  Eye, 
-  Mic, 
-  Camera, 
+import {
+  Users,
+  BookOpen,
+  Activity,
+  AlertTriangle,
   Settings,
-  Play,
-  Pause,
-  Stop,
-  Download,
-  Filter,
-  Search,
-  RefreshCw,
-  TrendingUp,
-  TrendingDown,
-  Clock,
-  CheckCircle,
-  XCircle,
-  AlertCircle
+  LogOut,
+  Trash2,
+  Edit2,
+  Plus,
+  Mail,
+  User,
+  Eye,
+  Radar,
+  RefreshCw
 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
-// Enregistrer les composants Chart.js
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  ArcElement,
-  Title,
-  Tooltip,
-  Legend
-);
+interface StatCard {
+  label: string;
+  value: number | string;
+  icon: React.ReactNode;
+  color: 'blue' | 'green' | 'orange' | 'red';
+}
+
+interface Alert {
+  id: string;
+  student?: string;
+  type: string;
+  severity: string;
+  message: string;
+  timestamp: string;
+}
 
 interface Exam {
-  id: string;
+  id: string | number;
   title: string;
-  description: string;
-  duration: number;
-  startTime: Date;
-  endTime: Date;
-  status: 'scheduled' | 'active' | 'completed' | 'cancelled';
-  participants: number;
-  maxParticipants: number;
-  instructor: string;
-  instructions: string;
-  allowedApps: string[];
-  allowedDomains: string[];
-  createdAt: Date;
-  updatedAt: Date;
+  description?: string;
+  duration_minutes?: number;
+  status?: string;
+  created_at?: string;
 }
 
-interface Student {
-  id: string;
-  name: string;
+interface User {
+  id: number;
+  username: string;
   email: string;
-  studentId: string;
-  status: 'active' | 'inactive' | 'suspended';
-  lastLogin: Date;
-  totalExams: number;
-  violations: number;
-  createdAt: Date;
+  full_name: string;
+  role: string;
+  is_active: boolean;
 }
 
-interface SurveillanceAlert {
+interface Session {
   id: string;
-  timestamp: Date;
-  studentId: string;
-  examId: string;
-  incidentType: string;
-  alertLevel: 'low' | 'medium' | 'high' | 'critical';
-  confidence: number;
-  description: string;
-  metadata: Record<string, any>;
-  processed: boolean;
-}
-
-interface ExamSession {
-  id: string;
-  examId: string;
-  studentId: string;
-  studentName: string;
-  startTime: Date;
-  endTime?: Date;
-  status: 'active' | 'completed' | 'terminated';
-  violations: number;
-  lastActivity: Date;
-  recordingFiles: {
-    video?: string;
-    audio?: string;
-    screen?: string[];
-  };
-}
-
-interface DashboardStats {
-  totalExams: number;
-  activeExams: number;
-  totalStudents: number;
-  activeSessions: number;
-  totalAlerts: number;
-  criticalAlerts: number;
-  systemHealth: number;
-  averageSessionDuration: number;
+  student_name?: string;
+  studentName?: string;
+  exam_id?: string | number;
+  examId?: string | number;
+  status: string;
+  start_time?: string;
+  startTime?: string;
+  violations?: number;
 }
 
 const AdminDashboard: React.FC = () => {
-  // États principaux
-  const [activeTab, setActiveTab] = useState<'overview' | 'exams' | 'students' | 'surveillance' | 'settings'>('overview');
-  const [isLoading, setIsLoading] = useState(true);
-  const [refreshInterval, setRefreshInterval] = useState(5000); // 5 secondes
+  const navigate = useNavigate();
+  const { user: authUser, logout } = useAuth();
 
-  // Données
-  const [stats, setStats] = useState<DashboardStats>({
-    totalExams: 0,
-    activeExams: 0,
-    totalStudents: 0,
-    activeSessions: 0,
-    totalAlerts: 0,
-    criticalAlerts: 0,
-    systemHealth: 100,
-    averageSessionDuration: 0
-  });
-
+  // State
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'exams' | 'sessions' | 'users' | 'settings'>('dashboard');
+  const [stats, setStats] = useState({ activeUsers: 0, activeExams: 0, activeSessions: 0, alerts: 0 });
   const [exams, setExams] = useState<Exam[]>([]);
-  const [students, setStudents] = useState<Student[]>([]);
-  const [alerts, setAlerts] = useState<SurveillanceAlert[]>([]);
-  const [sessions, setSessions] = useState<ExamSession[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [studentFilter, setStudentFilter] = useState('');
+  const [filteredAlerts, setFilteredAlerts] = useState<Alert[]>([]);
 
-  // Filtres et recherche
-  const [searchTerm, setSearchTerm] = useState('');
-  const [alertFilter, setAlertFilter] = useState<'all' | 'low' | 'medium' | 'high' | 'critical'>('all');
-  const [examFilter, setExamFilter] = useState<'all' | 'scheduled' | 'active' | 'completed'>('all');
-
-  // Chargement des données
-  const loadDashboardData = useCallback(async () => {
+  // Load dashboard data
+  const loadData = useCallback(async () => {
+    setLoading(true);
     try {
-      setIsLoading(true);
-      
-      // Charger les statistiques
-      const statsResponse = await fetch('/api/v1/admin/dashboard/stats');
-      const statsData = await statsResponse.json();
-      setStats(statsData);
+      // Load users
+      const usersRes = await fetch('/api/v1/users');
+      if (usersRes.ok) {
+        const usersData = await usersRes.json();
+        setUsers(usersData);
+      }
 
-      // Charger les examens
-      const examsResponse = await fetch('/api/v1/admin/exams');
-      const examsData = await examsResponse.json();
-      setExams(examsData);
+      // Load exams
+      const examsRes = await fetch('/api/v1/exams');
+      if (examsRes.ok) {
+        const examsData = await examsRes.json();
+        setExams(examsData);
+      }
 
-      // Charger les étudiants
-      const studentsResponse = await fetch('/api/v1/admin/students');
-      const studentsData = await studentsResponse.json();
-      setStudents(studentsData);
+      // Load alerts
+      const alertsRes = await fetch('/api/v1/alerts');
+      if (alertsRes.ok) {
+        const alertsData = await alertsRes.json();
+        setAlerts(alertsData);
+      }
 
-      // Charger les alertes
-      const alertsResponse = await fetch('/api/v1/admin/surveillance/alerts');
-      const alertsData = await alertsResponse.json();
-      setAlerts(alertsData);
+      // Calculate stats
+      const activeUserCount = users.filter(u => u.is_active).length;
+      const activeExamCount = exams.filter(e => e.status === 'active' || e.status === 'Actif').length;
+      const alertCount = alerts.length;
 
-      // Charger les sessions actives
-      const sessionsResponse = await fetch('/api/v1/admin/sessions/active');
-      const sessionsData = await sessionsResponse.json();
-      setSessions(sessionsData);
-
-    } catch (error) {
-      console.error('Erreur lors du chargement des données:', error);
+      setStats({
+        activeUsers: activeUserCount,
+        activeExams: activeExamCount,
+        activeSessions: 1, // mock
+        alerts: alertCount
+      });
+    } catch (err) {
+      console.error('Error loading dashboard data:', err);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
+  }, [users, exams, alerts]);
+
+  // Filter alerts by student
+  useEffect(() => {
+    if (studentFilter.trim()) {
+      const query = studentFilter.toLowerCase();
+      setFilteredAlerts(alerts.filter(a =>
+        (a.student && a.student.toLowerCase().includes(query)) ||
+        a.type?.toLowerCase().includes(query)
+      ));
+    } else {
+      setFilteredAlerts(alerts);
+    }
+  }, [studentFilter, alerts]);
+
+  // Load data on mount
+  useEffect(() => {
+    loadData();
   }, []);
 
-  // Effet de chargement initial et rafraîchissement automatique
-  useEffect(() => {
-    loadDashboardData();
+  // Delete exam with improved error handling
+  const deleteExam = async (examId: string | number) => {
+    if (!window.confirm('🚨 Êtes-vous CERTAIN de vouloir supprimer cet examen ?\n\nCette action est IRRÉVERSIBLE')) return;
     
-    const interval = setInterval(loadDashboardData, refreshInterval);
-    return () => clearInterval(interval);
-  }, [loadDashboardData, refreshInterval]);
-
-  // Données pour les graphiques
-  const alertsOverTimeData = {
-    labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'],
-    datasets: [
-      {
-        label: 'Alertes Critiques',
-        data: [2, 1, 3, 5, 2, 1],
-        borderColor: 'rgb(239, 68, 68)',
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-        tension: 0.4
-      },
-      {
-        label: 'Alertes Élevées',
-        data: [5, 3, 7, 8, 6, 4],
-        borderColor: 'rgb(245, 158, 11)',
-        backgroundColor: 'rgba(245, 158, 11, 0.1)',
-        tension: 0.4
-      },
-      {
-        label: 'Alertes Moyennes',
-        data: [12, 8, 15, 18, 14, 10],
-        borderColor: 'rgb(59, 130, 246)',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-        tension: 0.4
-      }
-    ]
-  };
-
-  const examStatusData = {
-    labels: ['Programmés', 'Actifs', 'Terminés', 'Annulés'],
-    datasets: [
-      {
-        data: [stats.totalExams - stats.activeExams, stats.activeExams, 45, 2],
-        backgroundColor: [
-          'rgb(59, 130, 246)',
-          'rgb(34, 197, 94)',
-          'rgb(107, 114, 128)',
-          'rgb(239, 68, 68)'
-        ],
-        borderWidth: 0
-      }
-    ]
-  };
-
-  const alertTypesData = {
-    labels: ['Visage Non Visible', 'Regard Détourné', 'Voix Détectée', 'App Non Autorisée', 'Copier-Coller'],
-    datasets: [
-      {
-        label: 'Nombre d\'alertes',
-        data: [15, 8, 3, 2, 12],
-        backgroundColor: [
-          'rgb(239, 68, 68)',
-          'rgb(245, 158, 11)',
-          'rgb(59, 130, 246)',
-          'rgb(168, 85, 247)',
-          'rgb(34, 197, 94)'
-        ]
-      }
-    ]
-  };
-
-  // Filtrage des données
-  const filteredAlerts = alerts.filter(alert => {
-    const matchesSearch = alert.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         alert.studentId.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = alertFilter === 'all' || alert.alertLevel === alertFilter;
-    return matchesSearch && matchesFilter;
-  });
-
-  const filteredExams = exams.filter(exam => {
-    const matchesSearch = exam.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         exam.instructor.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = examFilter === 'all' || exam.status === examFilter;
-    return matchesSearch && matchesFilter;
-  });
-
-  // Gestion des actions
-  const handleProcessAlert = async (alertId: string) => {
     try {
-      await fetch(`/api/v1/admin/surveillance/alerts/${alertId}/process`, {
-        method: 'POST'
+      const res = await fetch(`/api/v1/exams/${examId}`, { 
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
       
-      setAlerts(prev => prev.map(alert => 
-        alert.id === alertId ? { ...alert, processed: true } : alert
-      ));
-    } catch (error) {
-      console.error('Erreur lors du traitement de l\'alerte:', error);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          // Optimistic update: remove from UI immediately
+          setExams(prev => prev.filter(e => e.id !== examId));
+          // Show success feedback
+          console.log(`✅ Examen ${examId} supprimé avec succès`);
+        } else {
+          console.error('❌ Erreur serveur: réponse non valide');
+          alert('❌ Erreur : La suppression n\'a pas été confirmée par le serveur');
+        }
+      } else if (res.status === 404) {
+        alert('❌ Examen introuvable (déjà supprimé?)');
+        // Still remove from UI
+        setExams(prev => prev.filter(e => e.id !== examId));
+      } else if (res.status === 503) {
+        alert('❌ Erreur serveur : Base de données indisponible');
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        alert(`❌ Erreur ${res.status}: ${errorData.detail || 'Suppression échouée'}`);
+      }
+    } catch (err) {
+      console.error('Erreur réseau lors de la suppression:', err);
+      alert('❌ Erreur réseau : Impossible de supprimer l\'examen');
     }
   };
 
-  const handleTerminateSession = async (sessionId: string) => {
-    try {
-      await fetch(`/api/v1/admin/sessions/${sessionId}/terminate`, {
-        method: 'POST'
-      });
-      
-      setSessions(prev => prev.filter(session => session.id !== sessionId));
-    } catch (error) {
-      console.error('Erreur lors de la termination de la session:', error);
-    }
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
   };
 
-  const handleDownloadRecording = async (sessionId: string, fileType: 'video' | 'audio' | 'screen') => {
-    try {
-      const response = await fetch(`/api/v1/admin/sessions/${sessionId}/recording/${fileType}`);
-      const blob = await response.blob();
-      
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `recording_${sessionId}_${fileType}.${fileType === 'video' ? 'mp4' : fileType === 'audio' ? 'wav' : 'png'}`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (error) {
-      console.error('Erreur lors du téléchargement:', error);
-    }
-  };
+  // Stat card component - Tech Surveillance Theme
+  const StatCard: React.FC<{ stat: StatCard }> = ({ stat }) => {
+    const colorClass = {
+      blue: 'from-cyan-600 to-blue-600',
+      green: 'from-emerald-600 to-teal-600',
+      orange: 'from-amber-600 to-orange-600',
+      red: 'from-red-600 to-rose-600'
+    }[stat.color];
 
-  // Composant de statistiques
-  const StatCard: React.FC<{
-    title: string;
-    value: string | number;
-    icon: React.ReactNode;
-    trend?: 'up' | 'down' | 'neutral';
-    trendValue?: string;
-    color?: string;
-  }> = ({ title, value, icon, trend, trendValue, color = 'blue' }) => (
-    <div className={`bg-white rounded-lg shadow-md p-6 border-l-4 border-${color}-500`}>
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className="text-2xl font-bold text-gray-900">{value}</p>
-          {trend && trendValue && (
-            <div className={`flex items-center mt-2 text-sm ${
-              trend === 'up' ? 'text-green-600' : trend === 'down' ? 'text-red-600' : 'text-gray-600'
-            }`}>
-              {trend === 'up' ? <TrendingUp className="w-4 h-4 mr-1" /> : 
-               trend === 'down' ? <TrendingDown className="w-4 h-4 mr-1" /> : 
-               <Clock className="w-4 h-4 mr-1" />}
-              {trendValue}
-            </div>
-          )}
-        </div>
-        <div className={`p-3 rounded-full bg-${color}-100`}>
-          {icon}
-        </div>
-      </div>
-    </div>
-  );
+    const bgClass = {
+      blue: 'bg-cyan-50/50',
+      green: 'bg-emerald-50/50',
+      orange: 'bg-amber-50/50',
+      red: 'bg-red-50/50'
+    }[stat.color];
 
-  // Composant d'alerte
-  const AlertCard: React.FC<{ alert: SurveillanceAlert }> = ({ alert }) => (
-    <div className={`p-4 rounded-lg border-l-4 ${
-      alert.alertLevel === 'critical' ? 'border-red-500 bg-red-50' :
-      alert.alertLevel === 'high' ? 'border-orange-500 bg-orange-50' :
-      alert.alertLevel === 'medium' ? 'border-yellow-500 bg-yellow-50' :
-      'border-blue-500 bg-blue-50'
-    }`}>
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <div className="flex items-center space-x-2">
-            <AlertCircle className={`w-5 h-5 ${
-              alert.alertLevel === 'critical' ? 'text-red-500' :
-              alert.alertLevel === 'high' ? 'text-orange-500' :
-              alert.alertLevel === 'medium' ? 'text-yellow-500' :
-              'text-blue-500'
-            }`} />
-            <span className={`font-medium ${
-              alert.alertLevel === 'critical' ? 'text-red-800' :
-              alert.alertLevel === 'high' ? 'text-orange-800' :
-              alert.alertLevel === 'medium' ? 'text-yellow-800' :
-              'text-blue-800'
-            }`}>
-              {alert.incidentType.replace(/_/g, ' ').toUpperCase()}
-            </span>
-            <span className={`px-2 py-1 text-xs rounded-full ${
-              alert.alertLevel === 'critical' ? 'bg-red-200 text-red-800' :
-              alert.alertLevel === 'high' ? 'bg-orange-200 text-orange-800' :
-              alert.alertLevel === 'medium' ? 'bg-yellow-200 text-yellow-800' :
-              'bg-blue-200 text-blue-800'
-            }`}>
-              {alert.alertLevel.toUpperCase()}
-            </span>
-          </div>
-          <p className="mt-2 text-sm text-gray-700">{alert.description}</p>
-          <div className="mt-2 flex items-center space-x-4 text-xs text-gray-500">
-            <span>Étudiant: {alert.studentId}</span>
-            <span>Confiance: {(alert.confidence * 100).toFixed(1)}%</span>
-            <span>{new Date(alert.timestamp).toLocaleString()}</span>
-          </div>
-        </div>
-        {!alert.processed && (
-          <button
-            onClick={() => handleProcessAlert(alert.id)}
-            className="ml-4 px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Traiter
-          </button>
-        )}
-      </div>
-    </div>
-  );
+    const borderClass = {
+      blue: 'border-cyan-200',
+      green: 'border-emerald-200',
+      orange: 'border-amber-200',
+      red: 'border-red-200'
+    }[stat.color];
 
-  if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="flex items-center space-x-2">
-          <RefreshCw className="w-6 h-6 animate-spin text-blue-600" />
-          <span className="text-lg text-gray-600">Chargement du dashboard...</span>
+      <div className={`${bgClass} rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-2 overflow-hidden border-2 ${borderClass} backdrop-blur-sm`}>
+        <div className="flex items-center p-8 relative">
+          {/* Animated background glow */}
+          <div className={`absolute -top-8 -right-8 w-32 h-32 bg-gradient-to-br ${colorClass} opacity-10 rounded-full blur-3xl`}></div>
+          
+          <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${colorClass} flex items-center justify-center mr-6 shadow-2xl border-2 border-white/50 relative z-10`}>
+            <div className="text-white">{stat.icon}</div>
+          </div>
+          <div className="flex-1 relative z-10">
+            <p className="text-xs font-bold text-gray-700 uppercase tracking-widest">{stat.label}</p>
+            <p className="text-5xl font-black bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent mt-2">{stat.value}</p>
+          </div>
         </div>
+        {/* Bottom accent line */}
+        <div className={`h-1 bg-gradient-to-r ${colorClass}`}></div>
       </div>
     );
-  }
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="px-6 py-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+      {/* Header - Tech Surveillance Theme */}
+      <header className="bg-gradient-to-r from-slate-800/95 to-blue-900/95 backdrop-blur-xl shadow-2xl sticky top-0 z-50 border-b-2 border-cyan-500/30">
+        <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Dashboard Administrateur</h1>
-              <p className="text-sm text-gray-600">ProctoFlex AI - Université de Monastir - ESPRIM</p>
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-2xl blur-lg opacity-75 animate-pulse"></div>
+                <div className="relative w-14 h-14 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-2xl flex items-center justify-center shadow-xl border-2 border-cyan-300">
+                  <Radar className="w-7 h-7 text-white animate-spin" style={{ animationDuration: '3s' }} />
+                </div>
+              </div>
+              <div>
+                <h1 className="text-4xl font-black bg-gradient-to-r from-cyan-400 via-blue-300 to-cyan-300 bg-clip-text text-transparent">ProctoFlex AI</h1>
+                <p className="text-xs font-bold text-cyan-400 uppercase tracking-widest">🔐 Surveillance & Analytics</p>
+              </div>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center gap-4">
               <button
-                onClick={loadDashboardData}
-                className="flex items-center space-x-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                onClick={loadData}
+                className="p-3 hover:bg-cyan-500/20 rounded-xl transition-all duration-300 hover:scale-110 text-cyan-400 hover:text-cyan-300 border border-cyan-500/50 hover:border-cyan-400 font-bold"
+                title="Refresh Data"
               >
-                <RefreshCw className="w-4 h-4" />
-                <span>Actualiser</span>
+                <RefreshCw className="w-5 h-5" />
               </button>
-              <div className="flex items-center space-x-2">
-                <label className="text-sm text-gray-600">Rafraîchissement:</label>
-                <select
-                  value={refreshInterval}
-                  onChange={(e) => setRefreshInterval(Number(e.target.value))}
-                  className="px-3 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              <div className="flex items-center gap-3 pl-4 border-l-2 border-cyan-500/30">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full blur-md opacity-50"></div>
+                  <div className="relative w-11 h-11 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-full flex items-center justify-center shadow-lg border-2 border-cyan-300">
+                    <User className="w-5 h-5 text-white" />
+                  </div>
+                </div>
+                <div className="hidden sm:block">
+                  <p className="text-sm font-bold text-white">Administrateur</p>
+                  <p className="text-xs text-cyan-300">{authUser?.email || 'admin@proctoflex.ai'}</p>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="ml-3 p-3 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white rounded-xl transition-all duration-300 hover:scale-110 font-bold shadow-lg hover:shadow-xl border-2 border-red-400/50"
+                  title="Logout"
                 >
-                  <option value={5000}>5s</option>
-                  <option value={10000}>10s</option>
-                  <option value={30000}>30s</option>
-                  <option value={60000}>1min</option>
-                </select>
+                  <LogOut className="w-5 h-5" />
+                </button>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* Navigation */}
-      <div className="bg-white border-b">
-        <div className="px-6">
-          <nav className="flex space-x-8">
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-6 py-8">
+        {/* Tab Navigation - Tech Surveillance */}
+        <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl shadow-2xl mb-8 border-2 border-cyan-500/30 overflow-hidden backdrop-blur-sm">
+          <div className="flex border-b-2 border-cyan-500/20 flex-nowrap overflow-x-auto no-scrollbar">
             {[
-              { id: 'overview', label: 'Vue d\'ensemble', icon: Monitor },
-              { id: 'exams', label: 'Examens', icon: Users },
-              { id: 'students', label: 'Étudiants', icon: Users },
-              { id: 'surveillance', label: 'Surveillance', icon: Eye },
+              { id: 'dashboard', label: 'Dashboard', icon: Eye },
+              { id: 'exams', label: 'Examens', icon: BookOpen },
+              { id: 'sessions', label: 'Sessions', icon: Activity },
+              { id: 'users', label: 'Utilisateurs', icon: Users },
               { id: 'settings', label: 'Paramètres', icon: Settings }
             ].map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
                 onClick={() => setActiveTab(id as any)}
-                className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm ${
+                className={`min-w-[110px] flex-shrink-0 flex items-center gap-2 px-4 sm:px-6 py-3 sm:py-4 font-bold transition-all duration-300 border-b-4 text-left whitespace-nowrap relative ${
                   activeTab === id
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-cyan-500 text-cyan-300 bg-cyan-500/8'
+                    : 'border-transparent text-gray-400 hover:text-cyan-300 hover:bg-cyan-500/6'
                 }`}
               >
-                <Icon className="w-4 h-4" />
-                <span>{label}</span>
+                {activeTab === id && (
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-transparent"></div>
+                )}
+                <Icon className="w-5 h-5" />
+                <span className="truncate">{label}</span>
               </button>
             ))}
-          </nav>
-        </div>
-      </div>
-
-      {/* Contenu principal */}
-      <div className="p-6">
-        {activeTab === 'overview' && (
-          <div className="space-y-6">
-            {/* Statistiques principales */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <StatCard
-                title="Examens Actifs"
-                value={stats.activeExams}
-                icon={<Monitor className="w-6 h-6 text-blue-600" />}
-                trend="up"
-                trendValue="+12%"
-                color="blue"
-              />
-              <StatCard
-                title="Sessions Actives"
-                value={stats.activeSessions}
-                icon={<Users className="w-6 h-6 text-green-600" />}
-                trend="up"
-                trendValue="+8%"
-                color="green"
-              />
-              <StatCard
-                title="Alertes Critiques"
-                value={stats.criticalAlerts}
-                icon={<AlertTriangle className="w-6 h-6 text-red-600" />}
-                trend="down"
-                trendValue="-5%"
-                color="red"
-              />
-              <StatCard
-                title="Santé Système"
-                value={`${stats.systemHealth}%`}
-                icon={<CheckCircle className="w-6 h-6 text-green-600" />}
-                trend="neutral"
-                color="green"
-              />
-            </div>
-
-            {/* Graphiques */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white p-6 rounded-lg shadow">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Alertes dans le Temps</h3>
-                <Line data={alertsOverTimeData} options={{
-                  responsive: true,
-                  plugins: {
-                    legend: { position: 'top' as const },
-                    title: { display: false }
-                  }
-                }} />
-              </div>
-              <div className="bg-white p-6 rounded-lg shadow">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Statut des Examens</h3>
-                <Doughnut data={examStatusData} options={{
-                  responsive: true,
-                  plugins: {
-                    legend: { position: 'bottom' as const }
-                  }
-                }} />
-              </div>
-            </div>
-
-            {/* Alertes récentes */}
-            <div className="bg-white rounded-lg shadow">
-              <div className="px-6 py-4 border-b">
-                <h3 className="text-lg font-semibold text-gray-900">Alertes Récentes</h3>
-              </div>
-              <div className="p-6 space-y-4">
-                {filteredAlerts.slice(0, 5).map(alert => (
-                  <AlertCard key={alert.id} alert={alert} />
-                ))}
-              </div>
-            </div>
           </div>
-        )}
+        </div>
 
-        {activeTab === 'surveillance' && (
-          <div className="space-y-6">
-            {/* Filtres */}
-            <div className="bg-white p-6 rounded-lg shadow">
-              <div className="flex items-center space-x-4">
-                <div className="flex-1">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                    <input
-                      type="text"
-                      placeholder="Rechercher dans les alertes..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
+        {/* Dashboard Tab */}
+        {activeTab === 'dashboard' && (
+          <div className="space-y-8">
+            {/* Statistics */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <StatCard stat={{ label: 'Utilisateurs Actifs', value: stats.activeUsers, icon: <Users className="w-7 h-7" />, color: 'blue' }} />
+              <StatCard stat={{ label: 'Examens en Cours', value: stats.activeExams, icon: <BookOpen className="w-7 h-7" />, color: 'green' }} />
+              <StatCard stat={{ label: 'Sessions Actives', value: stats.activeSessions, icon: <Activity className="w-7 h-7" />, color: 'orange' }} />
+              <StatCard stat={{ label: 'Alertes', value: stats.alerts, icon: <AlertTriangle className="w-7 h-7" />, color: 'red' }} />
+            </div>
+
+            {/* Alerts Section - Tech Surveillance */}
+            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl shadow-2xl p-8 border-2 border-cyan-500/30 backdrop-blur-sm">
+              <div className="flex items-center justify-between mb-8">
+                <div>
+                  <h2 className="text-3xl font-black bg-gradient-to-r from-cyan-300 to-red-300 bg-clip-text text-transparent">Alertes Système</h2>
+                  <p className="text-xs text-cyan-400 font-bold mt-2 uppercase tracking-widest">Monitoring en Temps Réel</p>
                 </div>
-                <select
-                  value={alertFilter}
-                  onChange={(e) => setAlertFilter(e.target.value as any)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="all">Tous les niveaux</option>
-                  <option value="critical">Critique</option>
-                  <option value="high">Élevé</option>
-                  <option value="medium">Moyen</option>
-                  <option value="low">Faible</option>
-                </select>
+                <div className="px-4 py-3 bg-gradient-to-r from-red-600/20 to-rose-600/20 text-red-300 rounded-xl text-sm font-bold shadow-lg border-2 border-red-500/50">
+                  🚨 {stats.alerts} alerte{stats.alerts !== 1 ? 's' : ''}
+                </div>
               </div>
-            </div>
 
-            {/* Graphique des types d'alertes */}
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Types d'Alertes</h3>
-              <Bar data={alertTypesData} options={{
-                responsive: true,
-                plugins: {
-                  legend: { display: false }
-                }
-              }} />
-            </div>
-
-            {/* Sessions actives */}
-            <div className="bg-white rounded-lg shadow">
-              <div className="px-6 py-4 border-b">
-                <h3 className="text-lg font-semibold text-gray-900">Sessions Actives</h3>
+              {/* Student Filter */}
+              <div className="mb-8">
+                <div className="relative">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-400" />
+                  <input
+                    type="text"
+                    placeholder="Filtrer par étudiant (email/username)"
+                    value={studentFilter}
+                    onChange={(e) => setStudentFilter(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3 border-2 border-cyan-500/30 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-200 bg-slate-700/50 hover:bg-slate-700/70 text-white placeholder-gray-400"
+                  />
+                </div>
+                <p className="text-xs text-cyan-400 mt-2 font-medium">ex: student@test.com</p>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Étudiant
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Examen
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Durée
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Violations
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
+
+              {/* Alerts Table */}
+              <div className="overflow-x-auto rounded-xl border-2 border-cyan-500/30 bg-slate-800/50">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b-2 border-cyan-500/30 bg-gradient-to-r from-red-600/20 to-rose-600/20">
+                      <th className="px-6 py-4 text-left font-bold text-red-300 uppercase tracking-wider">Étudiant</th>
+                      <th className="px-6 py-4 text-left font-bold text-red-300 uppercase tracking-wider">Type</th>
+                      <th className="px-6 py-4 text-left font-bold text-red-300 uppercase tracking-wider">Sévérité</th>
+                      <th className="px-6 py-4 text-left font-bold text-red-300 uppercase tracking-wider">Message</th>
+                      <th className="px-6 py-4 text-left font-bold text-red-300 uppercase tracking-wider">Temps</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {sessions.map(session => (
-                      <tr key={session.id}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">{session.studentName}</div>
-                            <div className="text-sm text-gray-500">{session.studentId}</div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {session.examId}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {Math.floor((Date.now() - new Date(session.startTime).getTime()) / 60000)} min
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 py-1 text-xs rounded-full ${
-                            session.violations === 0 ? 'bg-green-100 text-green-800' :
-                            session.violations < 3 ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-red-100 text-red-800'
-                          }`}>
-                            {session.violations}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                          <button
-                            onClick={() => handleDownloadRecording(session.id, 'video')}
-                            className="text-blue-600 hover:text-blue-900"
-                          >
-                            <Download className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleTerminateSession(session.id)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            <Stop className="w-4 h-4" />
-                          </button>
+                  <tbody>
+                    {filteredAlerts.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-12 text-center text-cyan-400">
+                          <div className="text-6xl mb-3">📭</div>
+                          <p className="font-bold text-lg">Aucune alerte détectée</p>
+                          <p className="text-xs text-gray-400 mt-2">Le système fonctionne normalement</p>
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      filteredAlerts.slice(0, 10).map((alert, idx) => (
+                        <tr key={alert.id} className={`border-b border-cyan-500/20 transition-all duration-300 hover:bg-red-600/10 group ${idx % 2 === 0 ? 'bg-slate-800/30' : 'bg-slate-900/30'}`}>
+                          <td className="px-6 py-4 font-bold text-white group-hover:text-red-300">{alert.student || '—'}</td>
+                          <td className="px-6 py-4 text-gray-300">{alert.type}</td>
+                          <td className="px-6 py-4">
+                            <span className={`px-3 py-2 rounded-full text-xs font-bold shadow-lg border ${
+                              alert.severity === 'critical' ? 'bg-red-600/80 text-red-100 border-red-400/50' :
+                              alert.severity === 'high' ? 'bg-orange-600/80 text-orange-100 border-orange-400/50' :
+                              alert.severity === 'medium' ? 'bg-yellow-600/80 text-yellow-100 border-yellow-400/50' :
+                              'bg-blue-600/80 text-blue-100 border-blue-400/50'
+                            }`}>
+                              {alert.severity === 'critical' ? '🔴 CRITIQUE' :
+                               alert.severity === 'high' ? '🟠 ÉLEVÉ' :
+                               alert.severity === 'medium' ? '🟡 MOYEN' :
+                               '🔵 BAS'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-gray-300">{alert.message}</td>
+                          <td className="px-6 py-4 text-gray-400 text-xs font-mono">{new Date(alert.timestamp).toLocaleString('fr-FR')}</td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
             </div>
 
-            {/* Liste des alertes */}
-            <div className="bg-white rounded-lg shadow">
-              <div className="px-6 py-4 border-b">
-                <h3 className="text-lg font-semibold text-gray-900">Toutes les Alertes</h3>
+            {/* Recent Sessions */}
+            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl shadow-2xl p-8 border-2 border-cyan-500/30 backdrop-blur-sm">
+              <div>
+                <h2 className="text-3xl font-black bg-gradient-to-r from-cyan-300 to-emerald-300 bg-clip-text text-transparent mb-2">Sessions Récentes</h2>
+                <p className="text-xs text-cyan-400 font-bold uppercase tracking-widest mb-8">Surveillance des Examens</p>
               </div>
-              <div className="divide-y divide-gray-200">
-                {filteredAlerts.map(alert => (
-                  <AlertCard key={alert.id} alert={alert} />
-                ))}
+              <div className="overflow-x-auto rounded-xl border-2 border-cyan-500/30 bg-slate-800/50">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b-2 border-cyan-500/30 bg-gradient-to-r from-emerald-600/20 to-teal-600/20">
+                      <th className="px-6 py-4 text-left font-bold text-emerald-300 uppercase tracking-wider">Étudiant</th>
+                      <th className="px-6 py-4 text-left font-bold text-emerald-300 uppercase tracking-wider">Examen</th>
+                      <th className="px-6 py-4 text-left font-bold text-emerald-300 uppercase tracking-wider">Statut</th>
+                      <th className="px-6 py-4 text-left font-bold text-emerald-300 uppercase tracking-wider">Violations</th>
+                      <th className="px-6 py-4 text-left font-bold text-emerald-300 uppercase tracking-wider">Début</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sessions.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-12 text-center text-cyan-400">
+                          <div className="text-6xl mb-3">💤</div>
+                          <p className="font-bold text-lg">Aucune session active</p>
+                          <p className="text-xs text-gray-400 mt-2">Toutes les sessions sont terminées</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      sessions.slice(0, 5).map((session, idx) => (
+                        <tr key={session.id} className={`border-b border-cyan-500/20 transition-all duration-300 hover:bg-emerald-600/10 group ${idx % 2 === 0 ? 'bg-slate-800/30' : 'bg-slate-900/30'}`}>
+                          <td className="px-6 py-4 font-bold text-white group-hover:text-emerald-300">{session.student_name || session.studentName || '—'}</td>
+                          <td className="px-6 py-4 text-gray-300">{session.exam_id || session.examId || '—'}</td>
+                          <td className="px-6 py-4">
+                            <span className={`px-3 py-2 rounded-full text-xs font-bold shadow-lg border ${
+                              session.status === 'active' 
+                                ? 'bg-emerald-600/80 text-emerald-100 border-emerald-400/50' 
+                                : 'bg-slate-600/80 text-slate-100 border-slate-400/50'
+                            }`}>
+                              {session.status === 'active' ? '🟢 ACTIF' : '⏸️ TERMINÉ'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-gray-300 font-bold">{session.violations || 0}</td>
+                          <td className="px-6 py-4 text-gray-400 text-xs font-mono">{session.start_time || session.startTime || '—'}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
         )}
 
-        {/* Autres onglets... */}
+        {/* Exams Tab */}
         {activeTab === 'exams' && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Gestion des Examens</h2>
-            <p className="text-gray-600">Interface de gestion des examens en cours de développement...</p>
+          <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl shadow-2xl p-8 border-2 border-cyan-500/30 backdrop-blur-sm">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h2 className="text-3xl font-black bg-gradient-to-r from-cyan-300 to-blue-300 bg-clip-text text-transparent">Gestion des Examens</h2>
+                <p className="text-xs text-cyan-400 font-bold mt-2 uppercase tracking-widest">Surveillance Active</p>
+              </div>
+              <button className="flex items-center gap-2 px-6 py-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300 font-bold border-2 border-cyan-400/50">
+                <Plus className="w-6 h-6" />
+                Nouvel Examen
+              </button>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border-2 border-cyan-500/30 bg-slate-800/50">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b-2 border-cyan-500/30 bg-gradient-to-r from-cyan-600/20 to-blue-600/20">
+                    <th className="px-6 py-4 text-left font-bold text-cyan-300 uppercase tracking-wider">Titre</th>
+                    <th className="px-6 py-4 text-left font-bold text-cyan-300 uppercase tracking-wider">Description</th>
+                    <th className="px-6 py-4 text-left font-bold text-cyan-300 uppercase tracking-wider">Durée</th>
+                    <th className="px-6 py-4 text-left font-bold text-cyan-300 uppercase tracking-wider">Statut</th>
+                    <th className="px-6 py-4 text-left font-bold text-cyan-300 uppercase tracking-wider">Créé</th>
+                    <th className="px-6 py-4 text-right font-bold text-cyan-300 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {exams.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-12 text-center text-cyan-400">
+                        <div className="text-6xl mb-3">📋</div>
+                        <p className="font-bold text-lg">Aucun examen trouvé</p>
+                        <p className="text-xs text-gray-400 mt-2">Créez un nouvel examen pour commencer</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    exams.map((exam, idx) => (
+                      <tr key={exam.id} className={`border-b border-cyan-500/20 transition-all duration-300 hover:bg-cyan-500/10 group ${idx % 2 === 0 ? 'bg-slate-800/30' : 'bg-slate-900/30'}`}>
+                        <td className="px-6 py-4 font-bold text-white group-hover:text-cyan-300">{exam.title}</td>
+                        <td className="px-6 py-4 text-gray-300 max-w-xs truncate">{exam.description || '—'}</td>
+                        <td className="px-6 py-4 text-gray-300 font-semibold">{exam.duration_minutes ? `${exam.duration_minutes} min` : '—'}</td>
+                        <td className="px-6 py-4">
+                          <span className={`px-3 py-2 rounded-full text-xs font-bold shadow-lg border ${
+                            exam.status === 'active' || exam.status === 'Actif' 
+                              ? 'bg-emerald-600/80 text-emerald-100 border-emerald-400/50' 
+                              : 'bg-amber-600/80 text-amber-100 border-amber-400/50'
+                          }`}>
+                            {exam.status === 'active' || exam.status === 'Actif' ? '🔴 ACTIF' : '⏸️ BROUILLON'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-gray-400 text-xs font-mono">{exam.created_at ? new Date(exam.created_at).toLocaleString('fr-FR') : '—'}</td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300">
+                            <button className="p-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white rounded-lg transition-all duration-300 hover:scale-110 font-bold shadow-lg border-2 border-blue-400/50 hover:border-blue-300">
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => deleteExam(exam.id)}
+                              className="p-3 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white rounded-lg transition-all duration-300 hover:scale-110 font-bold shadow-lg border-2 border-red-400/50 hover:border-red-300 active:scale-95"
+                              title="Supprimer cet examen"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
-        {activeTab === 'students' && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Gestion des Étudiants</h2>
-            <p className="text-gray-600">Interface de gestion des étudiants en cours de développement...</p>
+        {/* Sessions Tab */}
+        {activeTab === 'sessions' && (
+          <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl shadow-2xl p-8 border-2 border-cyan-500/30 backdrop-blur-sm">
+            <h2 className="text-3xl font-black bg-gradient-to-r from-cyan-300 to-blue-300 bg-clip-text text-transparent mb-2">Gestion des Sessions</h2>
+            <p className="text-xs text-cyan-400 font-bold uppercase tracking-widest mb-8">Surveillance Active</p>
+            <div className="text-center py-20">
+              <div className="inline-block p-4 bg-gradient-to-br from-cyan-600/20 to-blue-600/20 rounded-2xl border-2 border-cyan-500/30 mb-6">
+                <div className="text-6xl">🔧</div>
+              </div>
+              <p className="text-cyan-300 font-bold text-lg">Module en cours de développement</p>
+              <p className="text-gray-400 text-sm mt-2">Cette fonctionnalité sera bientôt disponible</p>
+            </div>
           </div>
         )}
 
+        {/* Settings Tab */}
         {activeTab === 'settings' && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Paramètres Système</h2>
-            <p className="text-gray-600">Interface de configuration en cours de développement...</p>
+          <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl shadow-2xl p-8 border-2 border-cyan-500/30 backdrop-blur-sm">
+            <h2 className="text-3xl font-black bg-gradient-to-r from-cyan-300 to-blue-300 bg-clip-text text-transparent mb-2">Paramètres Système</h2>
+            <p className="text-xs text-cyan-400 font-bold uppercase tracking-widest mb-8">Configuration Avancée</p>
+            <div className="text-center py-20">
+              <div className="inline-block p-4 bg-gradient-to-br from-cyan-600/20 to-blue-600/20 rounded-2xl border-2 border-cyan-500/30 mb-6">
+                <div className="text-6xl">⚙️</div>
+              </div>
+              <p className="text-cyan-300 font-bold text-lg">Module en cours de développement</p>
+              <p className="text-gray-400 text-sm mt-2">Cette fonctionnalité sera bientôt disponible</p>
+            </div>
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 };

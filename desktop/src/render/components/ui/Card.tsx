@@ -17,16 +17,16 @@ export default function Card({
   variant = 'default',
   rounded = 'xl'
 }: CardProps) {
-  const baseClasses = 'bg-white transition-all duration-200';
+  const baseClasses = 'bg-white transition-all duration-200 electron-card';
   
   const variantClasses = {
-    default: 'border border-gray-200 shadow-sm',
+    default: 'border border-gray-200 shadow-md',
     elevated: 'border border-gray-200 shadow-lg',
-    outlined: 'border-2 border-gray-300 shadow-none',
-    filled: 'bg-gray-50 border border-gray-200 shadow-none'
+    outlined: 'border-2 border-gray-300 shadow-none bg-white',
+    filled: 'bg-gray-50 border border-gray-200 shadow-sm'
   };
   
-  const hoverClasses = hover ? 'hover:shadow-lg hover:border-gray-300 hover:scale-105 cursor-pointer' : '';
+  const hoverClasses = hover ? 'hover:shadow-lg hover:border-gray-300 cursor-pointer' : '';
   
   const paddingClasses = {
     none: '',

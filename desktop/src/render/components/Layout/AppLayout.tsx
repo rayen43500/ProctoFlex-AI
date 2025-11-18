@@ -29,7 +29,7 @@ export default function AppLayout({
 }: AppLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const [notifications] = useState(3);
+  const [notifications] = useState();
   const [searchQuery, setSearchQuery] = useState('');
 
   // Fonctions de contrôle de fenêtre
@@ -185,7 +185,6 @@ export default function AppLayout({
                 />
               </div>
             </div>
-ssssssssssssssssssssssssssssssssssss
             {/* Utilisateur + Notifications + Fenêtre */}
             <div className="flex items-center gap-2 sm:gap-3" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
               {/* Notifications */}
