@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { API_BASE, getAuthHeaders } from '@/contexts/AuthContext';
 
 interface User {
@@ -30,6 +31,23 @@ export default function Users() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Helper: safely parse JSON responses and guard against HTML/error pages
+  const safeParseJson = async (res: Response, ctx = ''): Promise<any | null> => {
+    const ct = res.headers.get('content-type') || '';
+    if (!ct.includes('application/json')) {
+      const text = await res.text().catch(() => '');
+      console.error(`Non-JSON response for ${ctx}:`, text);
+      return null;
+    }
+    try {
+      return await res.json();
+    } catch (e) {
+      const text = await res.text().catch(() => '');
+      console.error(`Failed to parse JSON for ${ctx}:`, e, text);
+      return null;
+    }
+  };
+
   // Form fields
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
@@ -56,8 +74,10 @@ export default function Users() {
       if (!usersResponse.ok) throw new Error('Erreur lors du chargement des utilisateurs');
       if (!statsResponse.ok) throw new Error('Erreur lors du chargement des statistiques');
 
-      const usersData = await usersResponse.json();
-      const statsData = await statsResponse.json();
+      const usersData = await safeParseJson(usersResponse, '/users');
+      const statsData = await safeParseJson(statsResponse, '/users/stats');
+
+      if (!usersData || !statsData) throw new Error('Réponse serveur inattendue');
 
       setUsers(usersData);
       setStats(statsData);
@@ -145,12 +165,13 @@ export default function Users() {
         method,
         headers: {
           'Content-Type': 'application/json',
+          ...getAuthHeaders()
         },
         body: JSON.stringify(userData)
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await safeParseJson(response, 'user save') || {};
         throw new Error(errorData.detail || 'Erreur lors de l\'enregistrement');
       }
 
@@ -167,13 +188,16 @@ export default function Users() {
   async function toggleUserStatus(user: User) {
     try {
       const response = await fetch(`${API_BASE}/users/${user.id}/toggle-status`, {
-        method: 'PATCH'
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
       });
 
       if (!response.ok) {
-        throw new Error('Erreur lors de la modification du statut');
+        const err = await safeParseJson(response, 'toggle-user') || {};
+        throw new Error(err.detail || 'Erreur lors de la modification du statut');
       }
 
+      toast.success('Statut mis à jour');
       await loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur inconnue');
@@ -187,13 +211,16 @@ export default function Users() {
 
     try {
       const response = await fetch(`${API_BASE}/users/${user.id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: { ...getAuthHeaders() }
       });
 
       if (!response.ok) {
-        throw new Error('Erreur lors de la suppression');
+        const err = await safeParseJson(response, 'delete-user') || {};
+        throw new Error(err.detail || 'Erreur lors de la suppression');
       }
 
+      toast.success('Utilisateur supprimé');
       await loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur inconnue');

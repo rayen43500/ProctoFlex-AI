@@ -4,6 +4,8 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import toast from 'react-hot-toast';
+import { API_BASE, getAuthHeaders } from '@/contexts/AuthContext';
 import {
   Users,
   BookOpen,
@@ -79,40 +81,97 @@ const AdminDashboard: React.FC = () => {
   const [exams, setExams] = useState<Exam[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [sessions] = useState<Session[]>([]);
+  const [, setLoading] = useState(false);
   const [studentFilter, setStudentFilter] = useState('');
   const [filteredAlerts, setFilteredAlerts] = useState<Alert[]>([]);
 
   // Load dashboard data
   const loadData = useCallback(async () => {
     setLoading(true);
+    // Helper: safely parse JSON responses and guard against HTML/error pages
+    const safeParseJson = async (res: Response, ctx = ''): Promise<any | null> => {
+      const ct = res.headers.get('content-type') || '';
+      if (!ct.includes('application/json')) {
+        const text = await res.text().catch(() => '');
+        console.error(`Non-JSON response for ${ctx}:`, text);
+        return null;
+      }
+      try {
+        return await res.json();
+      } catch (e) {
+        const text = await res.text().catch(() => '');
+        console.error(`Failed to parse JSON for ${ctx}:`, e, text);
+        return null;
+      }
+    };
     try {
       // Load users
-      const usersRes = await fetch('/api/v1/users');
-      if (usersRes.ok) {
-        const usersData = await usersRes.json();
-        setUsers(usersData);
+      // Local containers for freshly fetched data - avoids stale state during same run
+      let fetchedUsers: any[] | null = null;
+      let fetchedExams: any[] | null = null;
+      let fetchedAlerts: any[] | null = null;
+
+      try {
+        const usersRes = await fetch(`${API_BASE}/users`, { headers: { 'Content-Type': 'application/json', ...getAuthHeaders() } });
+        if (usersRes.ok) {
+          const usersData = await safeParseJson(usersRes, '/users');
+          if (usersData) {
+            fetchedUsers = usersData;
+            setUsers(usersData);
+          } else toast.error('Réponse inattendue du serveur pour les utilisateurs (voir console)');
+        } else {
+          const text = await usersRes.text().catch(() => '');
+          console.error('Failed to load users:', usersRes.status, text);
+          toast.error(`Erreur ${usersRes.status} lors du chargement des utilisateurs`);
+        }
+      } catch (e) {
+        console.error('Erreur lors du chargement des utilisateurs:', e);
+        toast.error('Erreur réseau lors du chargement des utilisateurs');
       }
 
       // Load exams
-      const examsRes = await fetch('/api/v1/exams');
-      if (examsRes.ok) {
-        const examsData = await examsRes.json();
-        setExams(examsData);
+      try {
+        const examsRes = await fetch(`${API_BASE}/exams`, { headers: { 'Content-Type': 'application/json', ...getAuthHeaders() } });
+        if (examsRes.ok) {
+          const examsData = await safeParseJson(examsRes, '/exams');
+          if (examsData) {
+            fetchedExams = examsData;
+            setExams(examsData);
+          } else toast.error('Réponse inattendue du serveur pour les examens (voir console)');
+        } else {
+          const text = await examsRes.text().catch(() => '');
+          console.error('Failed to load exams:', examsRes.status, text);
+          toast.error(`Erreur ${examsRes.status} lors du chargement des examens`);
+        }
+      } catch (e) {
+        console.error('Erreur lors du chargement des examens:', e);
+        toast.error('Erreur réseau lors du chargement des examens');
       }
 
       // Load alerts
-      const alertsRes = await fetch('/api/v1/alerts');
-      if (alertsRes.ok) {
-        const alertsData = await alertsRes.json();
-        setAlerts(alertsData);
+      try {
+        const alertsRes = await fetch(`${API_BASE}/alerts`, { headers: { 'Content-Type': 'application/json', ...getAuthHeaders() } });
+        if (alertsRes.ok) {
+          const alertsData = await safeParseJson(alertsRes, '/alerts');
+          if (alertsData) {
+            fetchedAlerts = alertsData;
+            setAlerts(alertsData);
+          } else toast.error('Réponse inattendue du serveur pour les alertes (voir console)');
+        } else {
+          const text = await alertsRes.text().catch(() => '');
+          console.error('Failed to load alerts:', alertsRes.status, text);
+          toast.error(`Erreur ${alertsRes.status} lors du chargement des alertes`);
+        }
+      } catch (e) {
+        console.error('Erreur lors du chargement des alertes:', e);
+        toast.error('Erreur réseau lors du chargement des alertes');
       }
 
-      // Calculate stats
-      const activeUserCount = users.filter(u => u.is_active).length;
-      const activeExamCount = exams.filter(e => e.status === 'active' || e.status === 'Actif').length;
-      const alertCount = alerts.length;
+      // Calculate stats using freshly fetched data (avoid relying on stale state values)
+      const activeUserCount = (fetchedUsers || users).filter((u: any) => u.is_active).length;
+      const activeExamCount = (fetchedExams || exams).filter((e: any) => e.status === 'active' || e.status === 'Actif').length;
+      const alertCount = (fetchedAlerts || alerts).length;
 
       setStats({
         activeUsers: activeUserCount,
@@ -148,39 +207,51 @@ const AdminDashboard: React.FC = () => {
   // Delete exam with improved error handling
   const deleteExam = async (examId: string | number) => {
     if (!window.confirm('🚨 Êtes-vous CERTAIN de vouloir supprimer cet examen ?\n\nCette action est IRRÉVERSIBLE')) return;
-    
+
     try {
-      const res = await fetch(`/api/v1/exams/${examId}`, { 
+      const res = await fetch(`${API_BASE}/exams/${examId}`, {
         method: 'DELETE',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
         }
       });
-      
+
       if (res.ok) {
-        const data = await res.json();
-        if (data.success) {
+        const data = await (async () => {
+          try {
+            return await res.json();
+          } catch (e) {
+            const text = await res.text().catch(() => '');
+            console.error('Non-JSON success response for delete:', text);
+            return null;
+          }
+        })();
+
+        if (data && data.success) {
           // Optimistic update: remove from UI immediately
           setExams(prev => prev.filter(e => e.id !== examId));
-          // Show success feedback
-          console.log(`✅ Examen ${examId} supprimé avec succès`);
+          toast.success('✅ Examen supprimé avec succès');
+        } else if (data === null) {
+          toast.error("❌ Réponse inattendue du serveur lors de la suppression (voir console)");
         } else {
-          console.error('❌ Erreur serveur: réponse non valide');
-          alert('❌ Erreur : La suppression n\'a pas été confirmée par le serveur');
+          console.error('❌ Erreur serveur: réponse non valide', data);
+          toast.error("❌ Erreur : La suppression n'a pas été confirmée par le serveur");
         }
       } else if (res.status === 404) {
-        alert('❌ Examen introuvable (déjà supprimé?)');
+        toast.error('❌ Examen introuvable (déjà supprimé?)');
         // Still remove from UI
         setExams(prev => prev.filter(e => e.id !== examId));
       } else if (res.status === 503) {
-        alert('❌ Erreur serveur : Base de données indisponible');
+        toast.error('❌ Erreur serveur : Base de données indisponible');
       } else {
-        const errorData = await res.json().catch(() => ({}));
-        alert(`❌ Erreur ${res.status}: ${errorData.detail || 'Suppression échouée'}`);
+        const text = await res.text().catch(() => '');
+        console.error('Failed delete response:', res.status, text);
+        toast.error(`❌ Erreur ${res.status}: Suppression échouée (voir console)`);
       }
     } catch (err) {
       console.error('Erreur réseau lors de la suppression:', err);
-      alert('❌ Erreur réseau : Impossible de supprimer l\'examen');
+      toast.error("❌ Erreur réseau : Impossible de supprimer l'examen");
     }
   };
 

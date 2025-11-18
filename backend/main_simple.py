@@ -688,14 +688,44 @@ async def exams_update(exam_id: str, payload: dict):
 @app.delete("/api/v1/exams/{exam_id}")
 async def exams_delete(exam_id: str):
     if DB_OK:
-        with SessionLocal() as db:
-            row = db.query(ExamDB).get(exam_id)
-            if row:
-                db.delete(row)
-                db.commit()
-                return {"success": True}
-            # If row not found, return 404
-            raise HTTPException(status_code=404, detail="Examen introuvable")
+        try:
+            # Normalize exam_id to integer if possible
+            try:
+                exam_pk = int(exam_id)
+            except Exception:
+                # If not numeric, return 400
+                raise HTTPException(status_code=400, detail="Identifiant d'examen invalide")
+
+            with SessionLocal() as db:
+                # First remove any exam_students entries to avoid FK constraint errors
+                try:
+                    db.query(ExamStudentDB).filter(ExamStudentDB.exam_id == exam_pk).delete()
+                except Exception:
+                    # Log but continue to attempt exam deletion
+                    logger.exception("Erreur lors de la suppression des liaisons exam_students")
+
+                row = db.query(ExamDB).filter(ExamDB.id == exam_pk).first()
+                if row:
+                    # If there's an associated pdf file, attempt to remove it from disk
+                    try:
+                        if row.pdf_path:
+                            pdf_path = os.path.join(os.getcwd(), 'uploads', 'exams', row.pdf_path)
+                            if os.path.exists(pdf_path):
+                                os.remove(pdf_path)
+                    except Exception:
+                        logger.exception("Impossible de supprimer le fichier PDF lié à l'examen")
+
+                    db.delete(row)
+                    db.commit()
+                    return {"success": True}
+
+                # If row not found, return 404
+                raise HTTPException(status_code=404, detail="Examen introuvable")
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.exception(f"Erreur interne lors de la suppression de l'examen {exam_id}: {e}")
+            raise HTTPException(status_code=500, detail="Erreur interne lors de la suppression de l'examen")
     # DB not available
     raise HTTPException(status_code=503, detail="Base de données indisponible")
 

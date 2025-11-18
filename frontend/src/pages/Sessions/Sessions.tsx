@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 import { Monitor, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 import { API_BASE, getAuthHeaders } from '@/contexts/AuthContext';
 
@@ -22,8 +23,16 @@ const Sessions: React.FC = () => {
       setError(null);
       const res = await fetch(`${API_BASE}/sessions`, { headers: { 'Content-Type': 'application/json', ...getAuthHeaders() } });
       if (!res.ok) throw new Error(`Erreur ${res.status}`);
-      const data = await res.json();
-      setSessions(Array.isArray(data) ? data : []);
+      const ct = res.headers.get('content-type') || '';
+      if (!ct.includes('application/json')) {
+        const text = await res.text().catch(() => '');
+        console.error('Non-JSON response for /sessions:', text);
+        toast.error('Réponse inattendue du serveur pour les sessions (voir console)');
+        setSessions([]);
+      } else {
+        const data = await res.json();
+        setSessions(Array.isArray(data) ? data : []);
+      }
     } catch (e: any) {
       setError(e.message || 'Erreur de chargement');
     } finally {

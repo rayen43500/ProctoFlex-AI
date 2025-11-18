@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import { API_BASE, getAuthHeaders } from '@/contexts/AuthContext';
 
@@ -48,14 +49,31 @@ const Exams: React.FC = () => {
   const [selectedStudents, setSelectedStudents] = useState<number[]>([]);
   const [loadingStudents, setLoadingStudents] = useState(false);
 
+  // Helper: safely parse JSON responses and guard against HTML/error pages
+  const safeParseJson = async (res: Response, ctx = ''): Promise<any | null> => {
+    const ct = res.headers.get('content-type') || '';
+    if (!ct.includes('application/json')) {
+      const text = await res.text().catch(() => '');
+      console.error(`Non-JSON response for ${ctx}:`, text);
+      return null;
+    }
+    try {
+      return await res.json();
+    } catch (e) {
+      const text = await res.text().catch(() => '');
+      console.error(`Failed to parse JSON for ${ctx}:`, e, text);
+      return null;
+    }
+  };
+
   async function load() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`${API_BASE}/exams`, { headers: { 'Content-Type': 'application/json', ...getAuthHeaders() } });
-      if (!res.ok) throw new Error(`Erreur ${res.status}`);
-      const data = await res.json();
-      setExams(Array.isArray(data) ? data : []);
+  const res = await fetch(`${API_BASE}/exams`, { headers: { 'Content-Type': 'application/json', ...getAuthHeaders() } });
+  if (!res.ok) throw new Error(`Erreur ${res.status}`);
+  const examsData = await safeParseJson(res, '/exams');
+  setExams(Array.isArray(examsData) ? examsData : []);
     } catch (e: any) {
       setError(e.message || 'Erreur de chargement');
     } finally {
@@ -66,12 +84,12 @@ const Exams: React.FC = () => {
   async function loadStudents() {
     try {
       setLoadingStudents(true);
-      const res = await fetch(`${API_BASE}/users`, { headers: { 'Content-Type': 'application/json', ...getAuthHeaders() } });
-      if (!res.ok) throw new Error('Erreur lors du chargement des étudiants');
-      const data = await res.json();
-      // Filtrer seulement les étudiants
-      const studentUsers = data.filter((user: User) => user.role === 'student' && user.is_active);
-      setStudents(studentUsers);
+  const res = await fetch(`${API_BASE}/users`, { headers: { 'Content-Type': 'application/json', ...getAuthHeaders() } });
+  if (!res.ok) throw new Error('Erreur lors du chargement des étudiants');
+  const data = await safeParseJson(res, '/users');
+  // Filtrer seulement les étudiants
+  const studentUsers = Array.isArray(data) ? data.filter((user: User) => user.role === 'student' && user.is_active) : [];
+  setStudents(studentUsers);
     } catch (err) {
       console.error('Erreur lors du chargement des étudiants:', err);
     } finally {
@@ -158,7 +176,7 @@ const Exams: React.FC = () => {
           body: JSON.stringify(payload)
         });
         if (!res.ok) throw new Error('Échec de la mise à jour');
-        const updated = await res.json().catch(() => null);
+        const updated = await safeParseJson(res, `/exams/${editing.id}`);
         const examId = (updated && updated.id) ? updated.id : editing.id;
         await uploadPdfIfAny(examId);
         if (updated && updated.id) {
@@ -184,7 +202,7 @@ const Exams: React.FC = () => {
           body: JSON.stringify(payload)
         });
         if (!res.ok) throw new Error('Échec de la création');
-        const created = await res.json().catch(() => null);
+        const created = await safeParseJson(res, '/exams (create)');
         if (created && created.id) {
           // Upload du PDF si fourni (désactivé côté frontend)
           if (pdfFile) {
@@ -209,10 +227,11 @@ const Exams: React.FC = () => {
     try {
       const res = await fetch(`${API_BASE}/exams/${exam.id}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
+        headers: { ...getAuthHeaders() }
       });
       if (!res.ok) throw new Error('Échec de la suppression');
       setExams((prev) => prev.filter((e) => e.id !== exam.id));
+      toast.success('Examen supprimé');
     } catch (err: any) {
       alert(err.message || 'Erreur lors de la suppression');
     }
