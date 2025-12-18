@@ -16,11 +16,11 @@ const Layout: React.FC = () => {
   const location = useLocation();
 
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Examens', href: '/exams', icon: FileText },
-    { name: 'Sessions', href: '/sessions', icon: Monitor },
-    { name: 'Utilisateurs', href: '/users', icon: Users },
-    { name: 'Paramètres', href: '/settings', icon: Settings },
+    { name: 'Dashboard', href: '/app/dashboard', icon: LayoutDashboard },
+    { name: 'Examens', href: '/app/exams', icon: FileText },
+    { name: 'Sessions', href: '/app/sessions', icon: Monitor },
+    { name: 'Utilisateurs', href: '/app/users', icon: Users },
+    { name: 'Paramètres', href: '/app/settings', icon: Settings },
   ];
 
   const handleLogout = () => {

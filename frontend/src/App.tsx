@@ -6,6 +6,7 @@ import { Toaster } from 'react-hot-toast';
 // Composants
 import Layout from '@/components/Layout/Layout';
 import Login from '@/pages/Auth/Login';
+import Home from '@/pages/Home/Home';
 import Dashboard from '@/pages/Dashboard/Dashboard';
 import Exams from '@/pages/Exams/Exams';
 import Sessions from '@/pages/Sessions/Sessions';
@@ -48,28 +49,29 @@ const App: React.FC = () => {
         <Router>
           <div className="min-h-screen bg-gray-50">
             <Routes>
-              {/* Route publique */}
+              {/* Routes publiques */}
+              <Route path="/" element={<Home />} />
               <Route path="/login" element={<Login />} />
-              
+
               {/* Routes protégées */}
               <Route
-                path="/"
+                path="/app"
                 element={
                   <ProtectedRoute>
                     <Layout />
                   </ProtectedRoute>
                 }
               >
-                <Route index element={<Navigate to="/dashboard" replace />} />
+                <Route index element={<Navigate to="dashboard" replace />} />
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="exams" element={<Exams />} />
                 <Route path="sessions" element={<Sessions />} />
                 <Route path="users" element={<Users />} />
                 <Route path="settings" element={<Settings />} />
               </Route>
-              
+
               {/* Route 404 */}
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
             
             {/* Notifications toast */}

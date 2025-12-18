@@ -1,48 +1,58 @@
 import React from 'react';
-import { 
-  Users, 
-  FileText, 
-  Monitor, 
+import {
+  Users,
+  FileText,
+  Monitor,
   AlertTriangle,
-  TrendingUp,
   Clock,
   CheckCircle,
-  XCircle
+  XCircle,
+  PlayCircle,
+  PlusCircle,
+  CalendarDays,
+  Brain
 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Dashboard: React.FC = () => {
-  const stats = [
+  const { user } = useAuth();
+
+  const kpis = [
     {
-      name: 'Utilisateurs Actifs',
-      value: '156',
-      change: '+12%',
-      changeType: 'positive',
-      icon: Users,
+      name: 'Examens planifiés',
+      value: '8',
+      sub: 'Cette semaine',
+      icon: CalendarDays,
+      color: 'from-blue-500/10 to-blue-500/5',
+      pill: 'Planning',
     },
     {
-      name: 'Examens en Cours',
-      value: '23',
-      change: '+5%',
-      changeType: 'positive',
-      icon: FileText,
-    },
-    {
-      name: 'Sessions Actives',
-      value: '89',
-      change: '+18%',
-      changeType: 'positive',
+      name: 'Sessions en cours',
+      value: '5',
+      sub: 'Surveillées en temps réel',
       icon: Monitor,
+      color: 'from-emerald-500/10 to-emerald-500/5',
+      pill: 'En direct',
     },
     {
-      name: 'Alertes',
-      value: '3',
-      change: '-2',
-      changeType: 'negative',
+      name: 'Alertes critiques',
+      value: '2',
+      sub: 'À vérifier rapidement',
       icon: AlertTriangle,
+      color: 'from-rose-500/10 to-rose-500/5',
+      pill: 'Risque',
+    },
+    {
+      name: "Étudiants surveillés",
+      value: '143',
+      sub: 'Sur les 30 derniers jours',
+      icon: Users,
+      color: 'from-violet-500/10 to-violet-500/5',
+      pill: 'Historique',
     },
   ];
 
-  const recentSessions = [
+  const activeSessions = [
     {
       id: 1,
       student: 'Ahmed Ben Ali',
@@ -50,22 +60,52 @@ const Dashboard: React.FC = () => {
       status: 'active',
       duration: '1h 23m',
       alerts: 0,
+      risk: 'Faible',
     },
     {
       id: 2,
       student: 'Fatma Mansouri',
       exam: 'Mathématiques Avancées',
-      status: 'completed',
-      duration: '2h 15m',
+      status: 'active',
+      duration: '52m',
       alerts: 1,
+      risk: 'Moyen',
     },
     {
       id: 3,
       student: 'Mohamed Karray',
       exam: 'Base de Données',
       status: 'active',
-      duration: '45m',
+      duration: '37m',
       alerts: 0,
+      risk: 'Faible',
+    },
+  ];
+
+  const recentAlerts = [
+    {
+      id: 1,
+      type: 'Regard détourné',
+      student: 'Fatma Mansouri',
+      exam: 'Mathématiques Avancées',
+      time: 'Il y a 8 min',
+      severity: 'medium',
+    },
+    {
+      id: 2,
+      type: 'Plusieurs visages détectés',
+      student: 'Groupe A',
+      exam: 'Réseaux',
+      time: 'Il y a 25 min',
+      severity: 'high',
+    },
+    {
+      id: 3,
+      type: 'Objet suspect',
+      student: 'Omar Trabelsi',
+      exam: 'Sécurité informatique',
+      time: 'Il y a 45 min',
+      severity: 'low',
     },
   ];
 
@@ -74,144 +114,216 @@ const Dashboard: React.FC = () => {
       case 'active':
         return <Clock className="h-4 w-4 text-blue-500" />;
       case 'completed':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
+        return <CheckCircle className="h-4 w-4 text-emerald-500" />;
       default:
-        return <XCircle className="h-4 w-4 text-red-500" />;
+        return <XCircle className="h-4 w-4 text-rose-500" />;
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'bg-blue-100 text-blue-800';
-      case 'completed':
-        return 'bg-green-100 text-green-800';
+  const getSeverityClass = (severity: string) => {
+    switch (severity) {
+      case 'high':
+        return 'bg-rose-100 text-rose-700';
+      case 'medium':
+        return 'bg-amber-100 text-amber-700';
       default:
-        return 'bg-red-100 text-red-800';
+        return 'bg-sky-100 text-sky-700';
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Tableau de Bord</h1>
-        <p className="text-gray-600">Vue d'ensemble de la surveillance des examens</p>
+      {/* En-tête enseignant */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+            Bonjour, {user?.username ?? 'Enseignant'}
+          </h1>
+          <p className="mt-1 text-sm text-slate-600">
+            Vue d&apos;ensemble de vos examens, sessions surveillées et alertes IA.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <button className="inline-flex items-center rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800 transition">
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Créer un examen
+          </button>
+          <button className="inline-flex items-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition">
+            <PlayCircle className="mr-2 h-4 w-4 text-emerald-500" />
+            Démarrer une session
+          </button>
+        </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
+      {/* KPIs principaux */}
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+        {kpis.map((kpi) => (
           <div
-            key={stat.name}
-            className="bg-white overflow-hidden shadow rounded-lg"
+            key={kpi.name}
+            className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-white to-slate-50 shadow-sm ring-1 ring-slate-100"
           >
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <stat.icon className="h-6 w-6 text-gray-400" />
+            <div className={`absolute inset-0 bg-gradient-to-tr ${kpi.color} pointer-events-none`} />
+            <div className="relative flex items-start justify-between p-4">
+              <div>
+                <div className="inline-flex items-center rounded-full bg-white/60 px-2 py-1 text-[11px] font-medium text-slate-600 shadow-sm ring-1 ring-slate-100 backdrop-blur">
+                  {kpi.pill}
                 </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
-                      {stat.name}
-                    </dt>
-                    <dd className="flex items-baseline">
-                      <div className="text-2xl font-semibold text-gray-900">
-                        {stat.value}
-                      </div>
-                      <div
-                        className={`ml-2 flex items-baseline text-sm font-semibold ${
-                          stat.changeType === 'positive'
-                            ? 'text-green-600'
-                            : 'text-red-600'
-                        }`}
-                      >
-                        <TrendingUp className="self-center flex-shrink-0 h-4 w-4" />
-                        <span className="sr-only">
-                          {stat.changeType === 'positive' ? 'Increased' : 'Decreased'} by
-                        </span>
-                        {stat.change}
-                      </div>
-                    </dd>
-                  </dl>
-                </div>
+                <p className="mt-3 text-xs font-medium uppercase tracking-wide text-slate-500">
+                  {kpi.name}
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-slate-900">{kpi.value}</p>
+                <p className="mt-1 text-xs text-slate-600">{kpi.sub}</p>
+              </div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/80 shadow-sm ring-1 ring-slate-100">
+                <kpi.icon className="h-5 w-5 text-slate-700" />
               </div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Recent Sessions */}
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-            Sessions Récentes
-          </h3>
-          <div className="overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+      {/* Grille principale */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        {/* Sessions actives */}
+        <div className="xl:col-span-2 rounded-2xl bg-white shadow-sm ring-1 ring-slate-100">
+          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-900">Sessions en cours</h2>
+              <p className="mt-0.5 text-xs text-slate-600">
+                Surveillez en temps réel les comportements détectés par l&apos;IA.
+              </p>
+            </div>
+            <button className="text-xs font-medium text-blue-600 hover:text-blue-700">
+              Voir toutes les sessions
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-100 text-sm">
+              <thead className="bg-slate-50/60">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
                     Étudiant
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
                     Examen
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
                     Statut
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
                     Durée
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
                     Alertes
                   </th>
+                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+                    Risque IA
+                  </th>
+                  <th className="px-5 py-3" />
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {recentSessions.map((session) => (
-                  <tr key={session.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {session.student}
-                      </div>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {activeSessions.map((session) => (
+                  <tr key={session.id} className="hover:bg-slate-50/80">
+                    <td className="whitespace-nowrap px-5 py-3 text-sm text-slate-900">
+                      {session.student}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{session.exam}</div>
+                    <td className="whitespace-nowrap px-5 py-3 text-sm text-slate-700">
+                      {session.exam}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
+                    <td className="whitespace-nowrap px-5 py-3">
+                      <div className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
                         {getStatusIcon(session.status)}
-                        <span
-                          className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(
-                            session.status
-                          )}`}
-                        >
+                        <span className="ml-1.5">
                           {session.status === 'active' ? 'En cours' : 'Terminé'}
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="whitespace-nowrap px-5 py-3 text-sm text-slate-700">
                       {session.duration}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        {session.alerts > 0 ? (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                            {session.alerts}
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            Aucune
-                          </span>
-                        )}
-                      </div>
+                    <td className="whitespace-nowrap px-5 py-3 text-sm text-slate-700">
+                      {session.alerts > 0 ? (
+                        <span className="inline-flex items-center rounded-full bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700">
+                          {session.alerts} alerte(s)
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                          Aucune
+                        </span>
+                      )}
+                    </td>
+                    <td className="whitespace-nowrap px-5 py-3 text-sm text-slate-700">
+                      {session.risk}
+                    </td>
+                    <td className="whitespace-nowrap px-5 py-3 text-right text-xs">
+                      <button className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                        Ouvrir la session
+                      </button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+
+        {/* Panneau IA & alertes */}
+        <div className="space-y-4">
+          <div className="rounded-2xl bg-slate-900 text-slate-50 shadow-sm">
+            <div className="flex items-center justify-between px-5 py-4">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                  IA de surveillance
+                </p>
+                <p className="mt-1 text-sm font-semibold text-white">
+                  Détection en temps réel activée
+                </p>
+              </div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-800/80">
+                <Brain className="h-5 w-5 text-emerald-400" />
+              </div>
+            </div>
+            <div className="border-t border-slate-800 px-5 py-3 text-xs text-slate-300">
+              Analyse vidéo, audio et écran pour repérer les comportements suspects pendant vos
+              examens.
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-100">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+              <h2 className="text-sm font-semibold text-slate-900">Alertes récentes</h2>
+              <span className="rounded-full bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                IA & règles métier
+              </span>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {recentAlerts.map((alert) => (
+                <div key={alert.id} className="px-5 py-3 text-sm">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="font-medium text-slate-900">{alert.type}</p>
+                      <p className="mt-0.5 text-xs text-slate-600">
+                        {alert.student} · {alert.exam}
+                      </p>
+                    </div>
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${getSeverityClass(alert.severity)}`}>
+                      {alert.severity === 'high'
+                        ? 'Critique'
+                        : alert.severity === 'medium'
+                          ? 'Moyenne'
+                          : 'Faible'}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">{alert.time}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-5 py-4 text-xs text-slate-600">
+            Astuce: configurez vos examens dans l&apos;onglet &laquo; Examens &raquo; puis lancez
+            les sessions depuis ce tableau de bord pour profiter du suivi IA complet.
           </div>
         </div>
       </div>
