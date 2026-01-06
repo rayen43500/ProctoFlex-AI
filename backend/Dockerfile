@@ -1,11 +1,14 @@
 FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
 WORKDIR /app
 
 # Dépendances système nécessaires pour OpenCV, face-recognition, etc.
+# Separate layer for system dependencies to improve caching
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
@@ -13,13 +16,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 \
     libssl-dev \
     curl \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
-# On utilise une version allégée des dépendances pour Docker (sans stack GPU lourde)
+# Copy requirements first for better layer caching
 COPY requirements-docker.txt .
 
-RUN pip install --no-cache-dir -r requirements-docker.txt
+# Install Python dependencies in separate layer
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements-docker.txt
 
+# Copy application code last (changes most frequently)
 COPY . .
 
 EXPOSE 8000
