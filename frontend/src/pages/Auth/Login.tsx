@@ -26,7 +26,7 @@ const Login: React.FC = () => {
         setError('Email ou mot de passe incorrect');
       }
     } catch (err) {
-      setError('Une erreur est survenue');
+      setError('Une erreur est survenue lors de la connexion');
     } finally {
       setIsLoading(false);
     }
@@ -123,7 +123,7 @@ const Login: React.FC = () => {
 
           <div className="text-center">
             <p className="text-xs text-gray-500">
-              Identifiants de test: admin@proctoflex.ai / admin123
+              Utilisez vos identifiants pour vous connecter
             </p>
           </div>
         </form>

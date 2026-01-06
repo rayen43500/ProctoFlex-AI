@@ -93,6 +93,29 @@ def authenticate_user(db: Session, username: str, password: str) -> Optional[Use
         return None
     return user
 
+def authenticate_user_by_email(db: Session, email: str, password: str) -> Optional[User]:
+    """Authentifie un utilisateur avec email et mot de passe"""
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        return None
+    if not verify_password(password, user.hashed_password):
+        return None
+    return user
+
+def authenticate_user_by_email_or_username(db: Session, identifier: str, password: str) -> Optional[User]:
+    """Authentifie un utilisateur avec email ou nom d'utilisateur et mot de passe"""
+    # Essayer d'abord par email
+    user = db.query(User).filter(User.email == identifier).first()
+    if not user:
+        # Si pas trouvé par email, essayer par username
+        user = db.query(User).filter(User.username == identifier).first()
+    
+    if not user:
+        return None
+    if not verify_password(password, user.hashed_password):
+        return None
+    return user
+
 def check_user_permission(user: User, required_role: str) -> bool:
     """Vérifie si l'utilisateur a le rôle requis"""
     if required_role == "admin":

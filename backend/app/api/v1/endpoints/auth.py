@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import (
     authenticate_user, 
+    authenticate_user_by_email_or_username,
     create_access_token, 
     get_current_user,
     get_password_hash
@@ -27,13 +28,14 @@ async def login(
 ):
     """
     Authentification utilisateur et génération de token JWT
+    Accepte email ou username dans le champ 'username'
     """
-    # Authentification de l'utilisateur
-    user = authenticate_user(db, form_data.username, form_data.password)
+    # Authentification de l'utilisateur (accepte email ou username)
+    user = authenticate_user_by_email_or_username(db, form_data.username, form_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Nom d'utilisateur ou mot de passe incorrect",
+            detail="Email/nom d'utilisateur ou mot de passe incorrect",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
@@ -54,6 +56,7 @@ async def login(
         "token_type": "bearer",
         "user_id": user.id,
         "username": user.username,
+        "email": user.email,
         "role": user.role
     }
 
